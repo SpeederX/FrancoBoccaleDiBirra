@@ -8,31 +8,31 @@
 #include "util/fileutil.h"
 #include "util/paths.h"
 
-int fb_transcribe_start(FbTranscribeJob *job, const FbTranscribeConfig *cfg,
-                         const char *wav_path, const char *log_dir) {
-    memset(job, 0, sizeof(*job));
-
+/* Spawns one attempt against job's already-stashed cfg/wav_path/log_dir.
+   Shared by fb_transcribe_start (attempt 1) and fb_transcribe_tick's
+   auto-retry (attempt 2+). */
+static int start_attempt(FbTranscribeJob *job) {
     char transcribe_dir[600];
-    snprintf(transcribe_dir, sizeof(transcribe_dir), "%s/transcribe", log_dir);
+    snprintf(transcribe_dir, sizeof(transcribe_dir), "%s/transcribe", job->log_dir);
     fb_ensure_dir(transcribe_dir);
     snprintf(job->log_path, sizeof(job->log_path), "%s/last.stderr.log", transcribe_dir);
     snprintf(job->stdout_path, sizeof(job->stdout_path), "%s/last.stdout.log", transcribe_dir);
 
     char tokens_arg[600], encoder_arg[600], decoder_arg[600], joiner_arg[600];
-    snprintf(tokens_arg, sizeof(tokens_arg), "--tokens=%s", cfg->tokens_path);
-    snprintf(encoder_arg, sizeof(encoder_arg), "--encoder=%s", cfg->encoder_path);
-    snprintf(decoder_arg, sizeof(decoder_arg), "--decoder=%s", cfg->decoder_path);
-    snprintf(joiner_arg, sizeof(joiner_arg), "--joiner=%s", cfg->joiner_path);
+    snprintf(tokens_arg, sizeof(tokens_arg), "--tokens=%s", job->cfg.tokens_path);
+    snprintf(encoder_arg, sizeof(encoder_arg), "--encoder=%s", job->cfg.encoder_path);
+    snprintf(decoder_arg, sizeof(decoder_arg), "--decoder=%s", job->cfg.decoder_path);
+    snprintf(joiner_arg, sizeof(joiner_arg), "--joiner=%s", job->cfg.joiner_path);
 
     const char *argv[] = {
-        cfg->sherpa_exe,
+        job->cfg.sherpa_exe,
         tokens_arg,
         encoder_arg,
         decoder_arg,
         joiner_arg,
         "--num-threads=4",
         "--decoding-method=greedy_search",
-        wav_path,
+        job->wav_path,
         NULL,
     };
 
@@ -43,6 +43,16 @@ int fb_transcribe_start(FbTranscribeJob *job, const FbTranscribeConfig *cfg,
     }
     job->state = FB_TRANSCRIBE_RUNNING;
     return 0;
+}
+
+int fb_transcribe_start(FbTranscribeJob *job, const FbTranscribeConfig *cfg,
+                         const char *wav_path, const char *log_dir) {
+    memset(job, 0, sizeof(*job));
+    job->cfg = *cfg;
+    snprintf(job->wav_path, sizeof(job->wav_path), "%s", wav_path);
+    snprintf(job->log_dir, sizeof(job->log_dir), "%s", log_dir);
+    job->attempt = 1;
+    return start_attempt(job);
 }
 
 /* sherpa-onnx-offline's stdout is just the JSON result line(s); scan by
@@ -92,5 +102,16 @@ void fb_transcribe_tick(FbTranscribeJob *job) {
     int found = stdout_text && extract_text(stdout_text, job->result_text, sizeof(job->result_text));
     free(stdout_text);
 
-    job->state = found ? FB_TRANSCRIBE_DONE : FB_TRANSCRIBE_ERROR;
+    if (found) {
+        job->state = FB_TRANSCRIBE_DONE;
+        return;
+    }
+
+    if (job->attempt < FB_TRANSCRIBE_MAX_ATTEMPTS) {
+        job->attempt++;
+        start_attempt(job); /* clean exit + empty stdout is a known sherpa-onnx quirk, not audio-content-specific */
+        return;
+    }
+
+    job->state = FB_TRANSCRIBE_ERROR;
 }

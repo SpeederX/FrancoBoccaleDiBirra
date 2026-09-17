@@ -27,12 +27,26 @@ typedef enum {
 
 #define FB_TRANSCRIBE_TEXT_MAX 1024
 
+#define FB_TRANSCRIBE_MAX_ATTEMPTS 2
+
 typedef struct {
     FbTranscribeState state;
     FbProcess *proc;
     char log_path[600]; /* stderr: sherpa-onnx's diagnostics, shown to the user on ERROR */
     char stdout_path[600]; /* stdout: the actual JSON result, parsed internally on DONE */
     char result_text[FB_TRANSCRIBE_TEXT_MAX];
+
+    /* Retained to auto-retry: sherpa-onnx-offline sometimes exits cleanly
+       (full "Done!"/RTF stats on stderr) but leaves stdout completely
+       empty — confirmed reproducible against real recordings of both very
+       different lengths, so it reads as an intermittent flush/timing quirk
+       in the tool itself rather than anything about the audio content.
+       Nothing we can fix in third-party code, so we retry once instead of
+       surfacing a bug that usually isn't one. */
+    FbTranscribeConfig cfg;
+    char wav_path[600];
+    char log_dir[600];
+    int attempt;
 } FbTranscribeJob;
 
 /* Starts transcribing wav_path in the background. log_dir's "transcribe"
@@ -46,8 +60,11 @@ int fb_transcribe_start(FbTranscribeJob *job, const FbTranscribeConfig *cfg,
                          const char *wav_path, const char *log_dir);
 
 /* Call once per frame while job->state == FB_TRANSCRIBE_RUNNING; advances
-   to DONE (result_text filled) or ERROR (check log_path) once the spawned
-   process exits. No-op otherwise. */
+   to DONE (result_text filled) once the spawned process exits with a
+   parseable result. An exit with empty/unparseable stdout re-spawns
+   automatically (see FbTranscribeJob's comment) up to
+   FB_TRANSCRIBE_MAX_ATTEMPTS before finally settling on ERROR (check
+   log_path). No-op while RUNNING with nothing new to observe yet. */
 void fb_transcribe_tick(FbTranscribeJob *job);
 
 #endif /* FB_TRANSCRIBE_H */
