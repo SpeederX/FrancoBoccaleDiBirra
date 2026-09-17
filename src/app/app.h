@@ -38,6 +38,7 @@ typedef struct {
     int transcribe_available;
     FbTranscribeConfig transcribe_cfg;
     FbTranscribeJob transcribe_job;
+    int transcribe_confirm_pending; /* awaiting a y/N reply after all retry attempts failed */
 
     FbAppView view;
     char calibr_root[512]; /* empty if FB_CALIBR_ROOT isn't set */

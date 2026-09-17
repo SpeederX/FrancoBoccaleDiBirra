@@ -27,7 +27,7 @@ typedef enum {
 
 #define FB_TRANSCRIBE_TEXT_MAX 1024
 
-#define FB_TRANSCRIBE_MAX_ATTEMPTS 2
+#define FB_TRANSCRIBE_MAX_ATTEMPTS 3
 
 typedef struct {
     FbTranscribeState state;

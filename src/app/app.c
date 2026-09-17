@@ -57,15 +57,24 @@ void fb_app_tick(FbApp *app) {
     }
 
     if (app->transcribe_job.state == FB_TRANSCRIBE_RUNNING) {
+        int attempt_before = app->transcribe_job.attempt;
         fb_transcribe_tick(&app->transcribe_job);
+
         if (app->transcribe_job.state == FB_TRANSCRIBE_DONE) {
             snprintf(app->cmdline.buf, FB_CMDLINE_MAX, "%s", app->transcribe_job.result_text);
             app->cmdline.len = strlen(app->cmdline.buf);
             snprintf(app->last_submitted, FB_CMDLINE_MAX,
                      "transcribed -- review/edit, then press enter");
         } else if (app->transcribe_job.state == FB_TRANSCRIBE_ERROR) {
-            snprintf(app->last_submitted, FB_CMDLINE_MAX, "transcription failed -- see %s",
-                     app->transcribe_job.log_path);
+            app->transcribe_confirm_pending = 1;
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "transcription failed after %d attempts -- retry? (y/N)",
+                     FB_TRANSCRIBE_MAX_ATTEMPTS);
+        } else if (app->transcribe_job.attempt != attempt_before) {
+            /* still RUNNING, but fb_transcribe_tick just kicked off a retry */
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "transcription failed (attempt %d of %d) -- retrying...",
+                     attempt_before, FB_TRANSCRIBE_MAX_ATTEMPTS);
         }
     }
 }
@@ -155,6 +164,29 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             return 1;
         }
 
+        if (app->transcribe_confirm_pending) {
+            if (ev->key == FB_KEY_CHAR && (ev->ch == 'y' || ev->ch == 'Y')) {
+                app->transcribe_confirm_pending = 0;
+                char wav_copy[600];
+                snprintf(wav_copy, sizeof(wav_copy), "%s", app->transcribe_job.wav_path);
+                fb_transcribe_start(&app->transcribe_job, &app->transcribe_cfg, wav_copy,
+                                     app->data_dir);
+                snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                         "transcribing... (attempt 1 of %d, ~6s for model load)",
+                         FB_TRANSCRIBE_MAX_ATTEMPTS);
+                return 0;
+            }
+            app->transcribe_confirm_pending = 0;
+            if ((ev->key == FB_KEY_CHAR && (ev->ch == 'n' || ev->ch == 'N')) ||
+                ev->key == FB_KEY_ESC) {
+                snprintf(app->last_submitted, FB_CMDLINE_MAX, "transcription discarded");
+                return 0;
+            }
+            /* any other key: treat as an implicit "no" but still let it
+               through normally (e.g. the user just started typing a
+               command instead of answering) */
+        }
+
         if (app->view != FB_VIEW_DASHBOARD) {
             if (ev->key == FB_KEY_ESC) {
                 app->view = FB_VIEW_DASHBOARD;
@@ -227,8 +259,10 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                              path);
                 } else if (fb_transcribe_start(&app->transcribe_job, &app->transcribe_cfg, path,
                                                 app->data_dir) == 0) {
+                    app->transcribe_confirm_pending = 0;
                     snprintf(app->last_submitted, FB_CMDLINE_MAX,
-                             "transcribing... (~6s for model load)");
+                             "transcribing... (attempt 1 of %d, ~6s for model load)",
+                             FB_TRANSCRIBE_MAX_ATTEMPTS);
                 } else {
                     snprintf(app->last_submitted, FB_CMDLINE_MAX, "failed to start transcription");
                 }
