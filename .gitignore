@@ -1,0 +1,9 @@
+build/
+out/
+.cache/
+*.obj
+*.exe
+*.pdb
+*.ilk
+CMakeUserPresets.json
+.claude/
