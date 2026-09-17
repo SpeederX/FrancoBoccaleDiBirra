@@ -249,6 +249,7 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
 
                 size_t n = 0;
                 const float *samples = fb_mic_recorded_samples(&n);
+                int capped = n >= (size_t)FB_MIC_SAMPLE_RATE * FB_MIC_MAX_RECORD_SECONDS;
                 char path[600];
                 snprintf(path, sizeof(path), "%s/last_recording.wav", app->data_dir);
                 if (fb_wav_write_file(path, samples, n, FB_MIC_SAMPLE_RATE) != 0) {
@@ -260,9 +261,15 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                 } else if (fb_transcribe_start(&app->transcribe_job, &app->transcribe_cfg, path,
                                                 app->data_dir) == 0) {
                     app->transcribe_confirm_pending = 0;
-                    snprintf(app->last_submitted, FB_CMDLINE_MAX,
-                             "transcribing... (attempt 1 of %d, ~6s for model load)",
-                             FB_TRANSCRIBE_MAX_ATTEMPTS);
+                    if (capped) {
+                        snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                                 "recording capped at %ds -- transcribing... (attempt 1 of %d)",
+                                 FB_MIC_MAX_RECORD_SECONDS, FB_TRANSCRIBE_MAX_ATTEMPTS);
+                    } else {
+                        snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                                 "transcribing... (attempt 1 of %d, ~6s for model load)",
+                                 FB_TRANSCRIBE_MAX_ATTEMPTS);
+                    }
                 } else {
                     snprintf(app->last_submitted, FB_CMDLINE_MAX, "failed to start transcription");
                 }

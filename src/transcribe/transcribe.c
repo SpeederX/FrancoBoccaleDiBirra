@@ -30,7 +30,13 @@ static int start_attempt(FbTranscribeJob *job) {
         encoder_arg,
         decoder_arg,
         joiner_arg,
-        "--num-threads=4",
+        /* Confirmed empirically: --num-threads=4 has an intermittent race
+           that drops the whole JSON result (clean exit, full stderr
+           stats, zero-byte stdout) roughly half the time. --num-threads=1
+           was 100% reliable across repeated identical runs but ~3x slower
+           to decode; =2 was also 100% reliable in the same testing at a
+           much smaller speed cost, so that's the balance struck here. */
+        "--num-threads=2",
         "--decoding-method=greedy_search",
         job->wav_path,
         NULL,
