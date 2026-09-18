@@ -599,9 +599,46 @@ static void write_index(const char *out_dir, const FbSweepSource *sources, int s
     fclose(f);
 }
 
+/* Recognized flags, checked below so a typo (--model vs --models, once
+   confirmed the hard way -- it silently fell through to "sweep every
+   registered model" instead of erroring) gets a visible warning instead
+   of silently doing the wrong thing. */
+static const char *const FB_SWEEP_KNOWN_FLAGS[] = {
+    "--source", "--models", "--model", "--out", "--no-open", "--experimental",
+};
+
+static void warn_on_unknown_flags(int argc, char **argv) {
+    for (int i = 0; i < argc; ++i) {
+        if (strncmp(argv[i], "--", 2) != 0) continue;
+
+        char name[64];
+        const char *eq = strchr(argv[i], '=');
+        size_t len = eq ? (size_t)(eq - argv[i]) : strlen(argv[i]);
+        if (len >= sizeof(name)) len = sizeof(name) - 1;
+        memcpy(name, argv[i], len);
+        name[len] = '\0';
+
+        int known = 0;
+        for (size_t k = 0; k < sizeof(FB_SWEEP_KNOWN_FLAGS) / sizeof(FB_SWEEP_KNOWN_FLAGS[0]);
+             ++k) {
+            if (strcmp(name, FB_SWEEP_KNOWN_FLAGS[k]) == 0) { known = 1; break; }
+        }
+        if (!known) {
+            fprintf(stderr, "warning: unrecognized flag '%s' -- ignored (did you mean --models?)\n",
+                    name);
+        }
+    }
+}
+
 int fb_sweep_run(int argc, char **argv) {
+    warn_on_unknown_flags(argc, argv);
+
     const char *source_arg = arg_value(argc, argv, "--source");
+    /* --model is a very natural typo/expectation when specifying just one
+       -- accepted as a plain alias for --models rather than silently
+       falling through to "sweep everything" like it used to. */
     const char *models_arg = arg_value(argc, argv, "--models");
+    if (!models_arg) models_arg = arg_value(argc, argv, "--model");
     const char *out_arg = arg_value(argc, argv, "--out");
     int experimental = 0;
     for (int i = 0; i < argc; ++i) {

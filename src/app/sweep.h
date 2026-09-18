@@ -27,8 +27,10 @@
  * to probe one specific instruction rule with a known-correct outcome --
  * independent of whatever's actually archived, for regression-testing
  * instruction wording changes; --source=file:PATH summarizes arbitrary
- * text with a generic instruction. --models defaults to every model in
- * config.json.
+ * text with a generic instruction. --models (--model also accepted, a
+ * natural typo when naming just one) defaults to every model in
+ * config.json; any unrecognized --flag prints a warning rather than
+ * being silently ignored.
  * --out is a directory (defaults under <data_dir>/diary/sweeps/, always a
  * fresh timestamped one when --out is omitted -- so an --experimental run
  * and a normal run never collide, each in its own directory ready to
