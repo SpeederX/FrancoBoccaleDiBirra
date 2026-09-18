@@ -15,15 +15,20 @@
  * answerable by eye without touching the live pipeline at all.
  *
  * Usage:
- *   fbdb.exe --sweep-summarize --source=<page:N|ltm|all|file:PATH>
+ *   fbdb.exe --sweep-summarize --source=<page:N|ltm|all|test:N|test:all|file:PATH>
  *            [--models=<name1,name2,...>|all] [--out=DIR] [--no-open]
  *            [--experimental]
  *
  * --source=page:N and --source=ltm read straight from this install's own
  * diary data (<data_dir>/diary/...) using the real sleep/checkpoint
  * instructions; --source=all sweeps every archived page plus long-term
- * memory in one run; --source=file:PATH summarizes arbitrary text with a
- * generic instruction. --models defaults to every model in config.json.
+ * memory in one run; --source=test:N (or test:all) runs a fixed set of
+ * synthetic scenarios (FB_SWEEP_TEST_SCENARIOS in sweep.c), each written
+ * to probe one specific instruction rule with a known-correct outcome --
+ * independent of whatever's actually archived, for regression-testing
+ * instruction wording changes; --source=file:PATH summarizes arbitrary
+ * text with a generic instruction. --models defaults to every model in
+ * config.json.
  * --out is a directory (defaults under <data_dir>/diary/sweeps/, always a
  * fresh timestamped one when --out is omitted -- so an --experimental run
  * and a normal run never collide, each in its own directory ready to

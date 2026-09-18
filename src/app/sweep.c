@@ -22,40 +22,119 @@
 /* --experimental: an alternate instruction pair, dev-only, not wired into
    the live pipeline anywhere -- purely for --sweep-summarize to compare
    against the production instructions (diary_job.h) in its own separate
-   timestamped output directory. Differences from production, per actual
-   user feedback on what the production instructions get wrong:
-   1. The user's own statements are ground truth; the assistant's replies
-      only matter for concrete answers given and for whether/how much the
-      user actually agreed with them -- not for their tone or flourish.
-   2. Checkpoint here synthesizes from each individual page's raw text
+   timestamped output directory. v2, revised against a three-way external
+   cross-review (Astra/GPT Sol/Qwen3.8 Max) of the first draft:
+   1. The user's own statements are ground truth; the assistant's
+      inferences/guesses count only if the user actually confirmed them --
+      staying silent or changing the subject is NOT agreement, and a
+      partial correction keeps only the corrected part, not the original
+      claim (this replaced v1's "note the specific part agreed with",
+      which named the idea but didn't make silence-isn't-agreement
+      explicit -- Astra's dreading-Monday example and GPT Sol's line
+      "silence should never count as agreement" are why this changed).
+   2. Importance is judged by "would this change a future conversation",
+      not by repetition -- v1's checkpoint instruction used repeat-count
+      as its importance signal ("appears across multiple pages is more
+      likely to be... important"), which Astra correctly flagged: a
+      consequential decision may be stated once, a passing irritation may
+      occupy several pages. Dropped entirely, replaced with an explicit
+      enduring/temporary/page-specific classification instead.
+   3. Checkpoint here synthesizes from each individual page's raw text
       (see build_experimental_ltm_text) rather than re-compressing
-      long_term.txt's own flat, already-blended prior output -- a fact
-      repeated across multiple pages is a stronger signal than one
-      mentioned once, which a flat compress-in-place can't distinguish. */
-#define FB_DIARY_SLEEP_INSTRUCTION_V2                                                          \
-    "You are a diary's memory consolidation process. Read the page below (a raw record of a "  \
-    "conversation between the user and an assistant) and extract what's worth remembering "     \
-    "long-term, following these rules: 1) Ground truth is what the USER said -- their own "     \
-    "facts, statements, decisions, and stated feelings; extract these first. 2) The "           \
-    "assistant's replies matter only for (a) any concrete answer, information, or plan it "     \
-    "actually gave, and (b) whether and how much the user agreed with, accepted, corrected, "   \
-    "or rejected it afterward -- note the specific part agreed with, not just \"agreed\" or "    \
-    "\"disagreed\". 3) Do not treat the assistant's own rhetorical flourish, roleplay, tone, "  \
-    "or exaggeration as fact, even if phrased confidently -- if a reply doesn't correspond to " \
-    "something the user actually confirmed or acted on, leave it out rather than restating it. " \
-    "Write only the resulting summary, no preamble, no headers."
+      long_term.txt's own flat, already-blended prior output, and is now
+      explicitly told to keep disagreements and corrections *visible*
+      rather than merge everything into one flattened voice -- Astra:
+      "'Blending' must leave disagreements and changes of mind visible
+      where they matter." */
+#define FB_DIARY_SLEEP_INSTRUCTION_V2                                                           \
+    "You are a diary's memory consolidation process. Read the page below (a raw record of a "   \
+    "conversation between the user and an assistant) and extract what's worth remembering "      \
+    "long-term. Rules: 1) Ground truth is what the USER said -- their own facts, statements, "   \
+    "decisions, and stated feelings; extract these first. 2) Never treat the assistant's "       \
+    "inferences, guesses, or interpretations as fact just because they were stated "             \
+    "confidently -- only keep an assistant claim if the user actually confirmed it, and only "   \
+    "the part they confirmed. The user staying silent, moving on, or changing the subject is "   \
+    "NOT agreement; do not record the assistant's claim as true in that case. 3) If the user "   \
+    "corrected or partially rejected something the assistant said, record the correction, not "  \
+    "the original claim. 4) Judge importance by whether remembering this would materially "      \
+    "change a future conversation, never by how many times it was repeated -- a fact stated "    \
+    "once (a decision, an event, a plan) can matter more than a feeling repeated several times; " \
+    "a repeated complaint is usually a temporary emotional state, not a durable fact, and "      \
+    "should be marked as such rather than inflated into one because it recurred. Write only "    \
+    "the resulting summary, no preamble, no headers."
 
-#define FB_DIARY_CHECKPOINT_INSTRUCTION_V2                                                     \
-    "You are synthesizing several diary pages (each section below is one page's raw "          \
-    "conversation, oldest first) into ONE coherent overview of what's durably true and "        \
-    "important -- not a per-page list. Rules: 1) Merge related or repeated points into a "      \
-    "single statement; something that appears across multiple pages is more likely to be a "    \
-    "stable, important fact than something mentioned once -- weight it accordingly. 2) "         \
-    "Prioritize the user's own established facts, decisions, and stated feelings over the "     \
-    "assistant's phrasing (assistant replies matter only for concrete answers given and "       \
-    "whether/how much the user agreed with them). 3) Drop anything that reads as one-off, "     \
-    "stale, or superseded by a later page. Write only the resulting overview, no preamble, no " \
-    "headers, no per-page breakdown -- one blended narrative."
+#define FB_DIARY_CHECKPOINT_INSTRUCTION_V2                                                      \
+    "You are synthesizing several diary pages (each section below is one page's raw "           \
+    "conversation, oldest first) into ONE coherent overview of what's durably true and "         \
+    "important. Rules: 1) Prioritize the user's own established facts, decisions, and stated "   \
+    "feelings over the assistant's phrasing -- the assistant's contributions matter only for "   \
+    "concrete answers given and for what the user actually confirmed, never for confident-"      \
+    "sounding inferences the user never agreed to. 2) Do not use repetition as a proxy for "     \
+    "importance -- something mentioned once can matter more than something repeated. Judge "     \
+    "each point by whether it would materially change how a future conversation should go, and " \
+    "classify it as enduring, temporary, or specific to that page. 3) When pages disagree, or a " \
+    "later page corrects or supersedes an earlier one, keep the correction and note that it "    \
+    "changed, rather than silently merging both into one flattened claim -- this overview "      \
+    "should stay revisable, not erase how understanding shifted. Write only the resulting "      \
+    "overview, no preamble, no headers, no per-page breakdown -- one blended narrative that "    \
+    "still shows what changed."
+
+/* --source=test:N: fixed synthetic scenarios, each written to probe one
+   specific rule above with a known-correct outcome -- independent of
+   whatever's actually in this install's diary data, so the instructions
+   can be regression-tested going forward regardless of what's been
+   archived. Raw "You:"/"<model>:" format, matching real pages exactly. */
+static const char *const FB_SWEEP_TEST_SCENARIOS[] = {
+    /* 1: a fact stated once should outweigh a complaint repeated four
+       times -- tests rule 4 (sleep) / rule 2 (checkpoint): importance by
+       consequence, not by repeat count. */
+    "You: I just accepted a new job offer at Meridian Labs, starting in three weeks.\n"
+    "\n"
+    "model: That's huge news, congratulations! How are you feeling about the transition?\n"
+    "\n"
+    "You: Honestly pretty stressed. My commute is going to be way longer.\n"
+    "\n"
+    "model: Long commutes can really wear you down over time. Have you thought about ways to "
+    "make it more bearable?\n"
+    "\n"
+    "You: My commute is going to be so long, I really don't know how I'll survive that drive "
+    "every single day.\n"
+    "\n"
+    "model: That does sound rough -- some people use that time for podcasts or audiobooks, "
+    "might help it feel less wasted.\n"
+    "\n"
+    "You: Yeah my commute is definitely the worst part of this whole thing.\n",
+
+    /* 2: the assistant offers a confident but wrong interpretation; the
+       user explicitly corrects it. Tests rule 2/3 (sleep): keep the
+       correction, not the original claim. */
+    "You: I'm dreading Monday.\n"
+    "\n"
+    "model: It sounds like you might be losing interest in your job overall.\n"
+    "\n"
+    "You: No, it's not that -- I still like the work. It's just the presentation I have to "
+    "give.\n"
+    "\n"
+    "model: That makes sense, presentations can be nerve-wracking regardless of how much you "
+    "enjoy your role.\n"
+    "\n"
+    "You: Exactly. I actually really enjoy the day-to-day work.\n",
+
+    /* 3: the assistant offers a confident interpretation the user neither
+       confirms nor denies -- just changes the subject. Tests rule 2
+       (sleep): silence/topic-change is not agreement. */
+    "You: I've been having trouble sleeping lately.\n"
+    "\n"
+    "model: That's often a sign of underlying anxiety or unresolved stress -- have you "
+    "considered that might be what's going on?\n"
+    "\n"
+    "You: Maybe. Anyway, do you know a good stretch routine for lower back pain?\n"
+    "\n"
+    "model: Sure, here's a simple routine: stand up, reach for your toes, hold for 20 "
+    "seconds, then arch your back gently the other way.\n",
+};
+#define FB_SWEEP_TEST_SCENARIO_COUNT \
+    (int)(sizeof(FB_SWEEP_TEST_SCENARIOS) / sizeof(FB_SWEEP_TEST_SCENARIOS[0]))
 
 typedef struct {
     char label[128];    /* "diary page 0", "current long-term memory" */
@@ -219,7 +298,7 @@ static int build_ltm_source(FbSweepSource *s, const char *data_dir, int experime
 static int build_sources(const char *source_arg, const char *data_dir, int experimental,
                           FbSweepSource **out_sources) {
     if (!source_arg) {
-        fprintf(stderr, "--source is required (page:N, ltm, all, or file:PATH)\n");
+        fprintf(stderr, "--source is required (page:N, ltm, all, test:N|all, or file:PATH)\n");
         return -1;
     }
 
@@ -263,6 +342,51 @@ static int build_sources(const char *source_arg, const char *data_dir, int exper
         }
         *out_sources = sources;
         return count;
+    }
+
+    if (strncmp(source_arg, "test:", 5) == 0) {
+        const char *which = source_arg + 5;
+        const char *page_instruction =
+            experimental ? FB_DIARY_SLEEP_INSTRUCTION_V2 : FB_DIARY_SLEEP_INSTRUCTION;
+
+        if (strcmp(which, "all") == 0) {
+            for (int i = 0; i < FB_SWEEP_TEST_SCENARIO_COUNT && count < FB_SWEEP_MAX_SOURCES; ++i) {
+                char *text = (char *)malloc(strlen(FB_SWEEP_TEST_SCENARIOS[i]) + 1);
+                if (!text) break;
+                strcpy(text, FB_SWEEP_TEST_SCENARIOS[i]);
+
+                char label[128], stub[64];
+                snprintf(label, sizeof(label), "test scenario %d%s", i + 1,
+                         experimental ? " (experimental)" : "");
+                snprintf(stub, sizeof(stub), "test_%d", i + 1);
+                fill_source(&sources[count++], text, page_instruction, label, stub, data_dir, 0);
+            }
+            *out_sources = sources;
+            return count;
+        }
+
+        int index = atoi(which);
+        if (index < 1 || index > FB_SWEEP_TEST_SCENARIO_COUNT) {
+            fprintf(stderr, "no such test scenario '%s' (have 1..%d, or 'all')\n", which,
+                    FB_SWEEP_TEST_SCENARIO_COUNT);
+            free(sources);
+            return -1;
+        }
+        char *text = (char *)malloc(strlen(FB_SWEEP_TEST_SCENARIOS[index - 1]) + 1);
+        if (!text) {
+            fprintf(stderr, "out of memory\n");
+            free(sources);
+            return -1;
+        }
+        strcpy(text, FB_SWEEP_TEST_SCENARIOS[index - 1]);
+
+        char label[128], stub[64];
+        snprintf(label, sizeof(label), "test scenario %d%s", index,
+                 experimental ? " (experimental)" : "");
+        snprintf(stub, sizeof(stub), "test_%d", index);
+        fill_source(&sources[0], text, page_instruction, label, stub, data_dir, 0);
+        *out_sources = sources;
+        return 1;
     }
 
     if (strncmp(source_arg, "page:", 5) == 0) {
@@ -323,7 +447,7 @@ static int build_sources(const char *source_arg, const char *data_dir, int exper
         return 1;
     }
 
-    fprintf(stderr, "unrecognized --source '%s' (expected page:N, ltm, all, or file:PATH)\n",
+    fprintf(stderr, "unrecognized --source '%s' (expected page:N, ltm, all, test:N|all, or file:PATH)\n",
             source_arg);
     free(sources);
     return -1;
