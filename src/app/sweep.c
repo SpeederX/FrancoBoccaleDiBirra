@@ -17,7 +17,14 @@
 #define FB_SWEEP_MAX_SOURCES 256
 #define FB_SWEEP_MAX_LIVE_PAGES 64
 #define FB_SWEEP_SOURCE_MAX (FB_DIARY_LTM_MAX_CHARS > 20000 ? FB_DIARY_LTM_MAX_CHARS : 20000)
-#define FB_SWEEP_LOAD_TIMEOUT_MS 60000
+/* Default only -- overridable per run via --load-timeout=<seconds>. 60s
+   (the original hardcoded value) turned out to be nowhere near enough for
+   a large model that needs heavy CPU/mmap offload on a small GPU --
+   confirmed against a real 21GB model on an 8GB card: llama-server was
+   still legitimately loading (no crash, no error, just still working)
+   when the old fixed timeout killed it. 180s is still just a default,
+   not a real bound on how long a big model can take. */
+#define FB_SWEEP_DEFAULT_LOAD_TIMEOUT_MS 180000
 
 /* --experimental: an alternate instruction pair, dev-only, not wired into
    the live pipeline anywhere -- purely for --sweep-summarize to compare
@@ -486,15 +493,22 @@ static int resolve_models(const char *models_arg, const FbConfig *cfg,
     return count;
 }
 
-static int wait_for_up_or_error(FbBackendMgr *mgr, const char *name) {
+typedef enum { FB_SWEEP_LOAD_UP, FB_SWEEP_LOAD_TIMEOUT, FB_SWEEP_LOAD_CRASHED } FbSweepLoadResult;
+
+/* Distinguishes "still loading, just slow" from "actually crashed" -- a
+   large model doing heavy CPU/mmap offload on a small GPU can take
+   several real minutes with no crash and no error, which used to be
+   reported identically to an actual llama-server failure. */
+static FbSweepLoadResult wait_for_up_or_error(FbBackendMgr *mgr, const char *name,
+                                               unsigned long long timeout_ms) {
     unsigned long long start = fb_now_ms();
     for (;;) {
         fb_backend_mgr_tick(mgr);
         FbBackendInstance *b = fb_backend_mgr_find(mgr, name);
-        if (!b) return -1;
-        if (b->state == FB_BACKEND_UP) return 0;
-        if (b->state == FB_BACKEND_ERROR) return -1;
-        if (fb_now_ms() - start > FB_SWEEP_LOAD_TIMEOUT_MS) return -1;
+        if (!b) return FB_SWEEP_LOAD_CRASHED;
+        if (b->state == FB_BACKEND_UP) return FB_SWEEP_LOAD_UP;
+        if (b->state == FB_BACKEND_ERROR) return FB_SWEEP_LOAD_CRASHED;
+        if (fb_now_ms() - start > timeout_ms) return FB_SWEEP_LOAD_TIMEOUT;
         fb_sleep_ms(200);
         printf(".");
         fflush(stdout);
@@ -604,7 +618,7 @@ static void write_index(const char *out_dir, const FbSweepSource *sources, int s
    registered model" instead of erroring) gets a visible warning instead
    of silently doing the wrong thing. */
 static const char *const FB_SWEEP_KNOWN_FLAGS[] = {
-    "--source", "--models", "--model", "--out", "--no-open", "--experimental",
+    "--source", "--models", "--model", "--out", "--no-open", "--experimental", "--load-timeout",
 };
 
 static void warn_on_unknown_flags(int argc, char **argv) {
@@ -640,6 +654,10 @@ int fb_sweep_run(int argc, char **argv) {
     const char *models_arg = arg_value(argc, argv, "--models");
     if (!models_arg) models_arg = arg_value(argc, argv, "--model");
     const char *out_arg = arg_value(argc, argv, "--out");
+    const char *load_timeout_arg = arg_value(argc, argv, "--load-timeout");
+    unsigned long long load_timeout_ms = load_timeout_arg
+                                              ? (unsigned long long)atoi(load_timeout_arg) * 1000ULL
+                                              : FB_SWEEP_DEFAULT_LOAD_TIMEOUT_MS;
     int experimental = 0;
     for (int i = 0; i < argc; ++i) {
         if (strcmp(argv[i], "--experimental") == 0) experimental = 1;
@@ -685,24 +703,36 @@ int fb_sweep_run(int argc, char **argv) {
     FbBackendMgr mgr;
     fb_backend_mgr_init(&mgr);
 
-    printf("sweeping %d model(s) x %d source(s)\n", model_count, source_count);
+    printf("sweeping %d model(s) x %d source(s) (load timeout %llus)\n", model_count, source_count,
+           load_timeout_ms / 1000);
     for (int m = 0; m < model_count; ++m) {
         printf("  [%d/%d] %s: loading", m + 1, model_count, model_names[m]);
         fflush(stdout);
 
         char model_path[FB_BACKEND_PATH_MAX];
-        int loaded =
+        int spawned =
             fb_config_find_model(&cfg, model_names[m], model_path, sizeof(model_path)) &&
             fb_backend_mgr_load(&mgr, model_names[m], model_path, llama_server_path, data_dir, 0,
                                  NULL) == 0;
-        if (loaded) loaded = wait_for_up_or_error(&mgr, model_names[m]) == 0;
+        FbSweepLoadResult load_result = FB_SWEEP_LOAD_CRASHED;
+        if (spawned) load_result = wait_for_up_or_error(&mgr, model_names[m], load_timeout_ms);
+        int loaded = load_result == FB_SWEEP_LOAD_UP;
 
         for (int s = 0; s < source_count; ++s) {
             FbSweepResult *r = &results[s * model_count + m];
             snprintf(r->name, sizeof(r->name), "%s", model_names[m]);
             if (!loaded) {
-                snprintf(r->result, sizeof(r->result),
-                         "model never became ready (see <data_dir>/logs/%s.log)", model_names[m]);
+                if (load_result == FB_SWEEP_LOAD_TIMEOUT) {
+                    snprintf(r->result, sizeof(r->result),
+                             "still loading after %llus -- not crashed, just slower than the "
+                             "timeout (see <data_dir>/logs/%s.log; try a larger "
+                             "--load-timeout=<seconds>)",
+                             load_timeout_ms / 1000, model_names[m]);
+                } else {
+                    snprintf(r->result, sizeof(r->result),
+                             "failed to start or crashed (see <data_dir>/logs/%s.log)",
+                             model_names[m]);
+                }
                 continue;
             }
             FbBackendInstance *b = fb_backend_mgr_find(&mgr, model_names[m]);
@@ -714,7 +744,13 @@ int fb_sweep_run(int argc, char **argv) {
         }
 
         printf(loaded ? " done\n" : " FAILED\n");
-        if (loaded) fb_backend_mgr_unload(&mgr, model_names[m]);
+        /* Stop it regardless of why it didn't come up -- a timed-out model
+           is usually still actively loading in the background, and
+           leaving it running into the next model's turn means two large
+           models competing for the same VRAM, which can cascade into
+           failing models that would otherwise have loaded fine. Only
+           skip this if spawning itself never succeeded (nothing to stop). */
+        if (spawned) fb_backend_mgr_unload(&mgr, model_names[m]);
     }
 
     fb_backend_mgr_shutdown(&mgr);

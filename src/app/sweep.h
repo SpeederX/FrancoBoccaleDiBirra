@@ -17,7 +17,15 @@
  * Usage:
  *   fbdb.exe --sweep-summarize --source=<page:N|ltm|all|test:N|test:all|file:PATH>
  *            [--models=<name1,name2,...>|all] [--out=DIR] [--no-open]
- *            [--experimental]
+ *            [--experimental] [--load-timeout=<seconds>]
+ *
+ * --load-timeout (default 180s) is how long to wait for a model to finish
+ * loading before giving up on it -- confirmed the hard way that 60s isn't
+ * enough for a large model needing heavy CPU/mmap offload on a small GPU;
+ * a report entry from a timeout says so explicitly ("still loading...not
+ * crashed, just slower than the timeout") rather than reading the same as
+ * an actual crash, and the process is stopped either way before moving to
+ * the next model so it can't keep competing for VRAM in the background.
  *
  * --source=page:N and --source=ltm read straight from this install's own
  * diary data (<data_dir>/diary/...) using the real sleep/checkpoint
