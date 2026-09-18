@@ -1,15 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "app/app.h"
+#include "app/sweep.h"
 #include "net/sockets_compat.h"
 #include "platform/platform.h"
 #include "tui/screen.h"
 
 int main(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
     fb_sock_platform_init();
+
+    /* Dev-only batch mode -- see sweep.h. Never touches the TUI/screen at
+       all; runs, writes its report, exits. */
+    if (argc > 1 && strcmp(argv[1], "--sweep-summarize") == 0) {
+        int rc = fb_sweep_run(argc - 2, argv + 2);
+        fb_sock_platform_cleanup();
+        return rc;
+    }
 
     if (fb_screen_init() != 0) {
         fprintf(stderr, "failed to initialize the terminal screen\n");

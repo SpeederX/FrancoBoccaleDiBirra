@@ -38,6 +38,7 @@ add_executable(fbdb
     src/main.c
     src/app/app.c
     src/app/command_dispatch.c
+    src/app/sweep.c
     src/tui/layout.c
     src/tui/widget_cmdline.c
     src/tui/fx_sphere.c
@@ -83,8 +84,9 @@ if (WIN32)
         src/platform/win/proc_win.c
         src/platform/win/dirlist_win.c
         src/platform/win/thread_win.c
+        src/platform/win/open_url_win.c
     )
-    target_link_libraries(fbdb PRIVATE ws2_32 ole32)
+    target_link_libraries(fbdb PRIVATE ws2_32 ole32 shell32)
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server.exe"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline.exe"
@@ -97,6 +99,7 @@ else()
         src/platform/posix/proc_posix.c
         src/platform/posix/dirlist_posix.c
         src/platform/posix/thread_posix.c
+        src/platform/posix/open_url_posix.c
     )
     target_link_libraries(fbdb PRIVATE termbox2 pthread m)
     target_compile_definitions(fbdb PRIVATE
