@@ -37,6 +37,7 @@ fb_add_test(calibr_results
     ${CMAKE_SOURCE_DIR}/src/tui/widget_textview.c
     ${CMAKE_SOURCE_DIR}/src/tui/layout.c
     ${CMAKE_SOURCE_DIR}/src/util/fileutil.c
+    ${CMAKE_SOURCE_DIR}/src/util/utf8.c
     ${fb_test_platform_sources}
 )
 target_link_libraries(test_calibr_results PRIVATE cjson)

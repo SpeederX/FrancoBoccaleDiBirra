@@ -27,6 +27,19 @@
 #define FB_COLOR_DIM_G 0x56
 #define FB_COLOR_DIM_B 0x60
 
+/* Second mode color (warm amber), distinct from the accent cyan (command
+   mode) and the hot magenta (recording/error, unrelated to mode) -- used
+   for the cmdline prompt and cursor in scratchpad mode. */
+#define FB_COLOR_WARM_R 0xe0
+#define FB_COLOR_WARM_G 0xa0
+#define FB_COLOR_WARM_B 0x30
+
+/* Third mode color (muted violet), for diary mode -- reflective/memory
+   coded, distinct from cyan/amber/magenta above. */
+#define FB_COLOR_DIARY_R 0x9a
+#define FB_COLOR_DIARY_G 0x6a
+#define FB_COLOR_DIARY_B 0xe8
+
 /* ASCII luminance ramp, dark to bright, for shaded effects (sphere, etc). */
 #define FB_SHADE_RAMP " .:-=+*#%@"
 

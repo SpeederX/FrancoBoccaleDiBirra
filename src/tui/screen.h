@@ -42,7 +42,21 @@ typedef enum {
     FB_KEY_ARROW_LEFT,
     FB_KEY_ARROW_RIGHT,
     FB_KEY_CTRL_C,
-    FB_KEY_CTRL_SPACE /* mic record toggle hotkey */
+    FB_KEY_CTRL_SPACE, /* mic record toggle hotkey */
+    /* Quick-action shortcuts, mirroring /help /load /unload /add /remove --
+       see fb_app_handle_event. */
+    FB_KEY_F1,
+    FB_KEY_F2,
+    FB_KEY_F3,
+    FB_KEY_F4,
+    FB_KEY_F5,
+    FB_KEY_F6, /* /list */
+    FB_KEY_F7, /* /new_page (diary mode only) */
+    FB_KEY_F10,
+    FB_KEY_PAGE_UP,
+    FB_KEY_PAGE_DOWN,
+    FB_KEY_ALT_LEFT,  /* diary mode: browse to the previous archived page */
+    FB_KEY_ALT_RIGHT  /* diary mode: browse to the next archived page */
 } FbKeyCode;
 
 typedef struct {

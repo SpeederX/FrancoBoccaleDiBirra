@@ -3,7 +3,9 @@
 
 #include "backend/backend_mgr.h"
 #include "calibr/calibr_log_tail.h"
+#include "chat/chat_job.h"
 #include "config/config.h"
+#include "diary/diary.h"
 #include "transcribe/transcribe.h"
 #include "tui/screen.h"
 #include "tui/widget_cmdline.h"
@@ -16,6 +18,15 @@ typedef enum {
     FB_VIEW_LEADERBOARD,
     FB_VIEW_LOGS
 } FbAppView;
+
+/* Three of the planned four modes are wired up so far (command,
+   scratchpad, diary) -- project (folder-scoped context) is a real,
+   separate feature still being built, not yet selectable here. */
+typedef enum {
+    FB_INPUT_MODE_COMMAND = 0, /* free text -> Qwen intent classify -> a command */
+    FB_INPUT_MODE_SCRATCHPAD,  /* free text -> sent directly to the loaded model, bounded memory */
+    FB_INPUT_MODE_DIARY        /* free text -> loaded model, plus fed into diary/diary.h's memory pipeline */
+} FbInputMode;
 
 #define FB_WAVE_HISTORY 256
 
@@ -35,6 +46,7 @@ typedef struct {
     char llama_server_path[FB_BACKEND_PATH_MAX];
     FbFilePicker file_picker;
     char file_picker_pending_name[FB_BACKEND_NAME_MAX];
+    int file_picker_pending_load; /* F2 shortcut with nothing registered yet: add, then load right away */
     int transcribe_available;
     FbTranscribeConfig transcribe_cfg;
     FbTranscribeJob transcribe_job;
@@ -47,6 +59,30 @@ typedef struct {
     FbCalibrLogTail log_tail;
 
     int qwen_available;
+    /* Each mode gets its own right-side panel -- they're genuinely separate
+       conversations (separate chat_job/diary_chat_job turn histories under
+       the hood), so showing them interleaved in one shared log would be
+       actively misleading about what context the model actually has. */
+    FbTextView history_view; /* command mode: "You: ..." / "Qwen: ..." */
+
+    FbInputMode input_mode; /* toggled with Tab outside /load and /unload completion */
+    FbChatJob chat_job;
+    FbTextView scratchpad_history_view;
+    /* Name of the model a chat request was sent to, cached at request time
+       -- the "most recently loaded" target can change while a reply is
+       still in flight, but the reply belongs to whichever model actually
+       received it. */
+    char chat_target_name[FB_BACKEND_NAME_MAX];
+
+    FbDiary diary;
+    FbChatJob diary_chat_job; /* separate from chat_job: diary's own live conversation */
+    char diary_chat_target_name[FB_BACKEND_NAME_MAX];
+    FbTextView diary_live_view; /* diary mode, browse_index == -1 */
+    /* Rebuilt whenever Alt-Left/Alt-Right changes diary.browse_index;
+       rendered instead of diary_live_view while browse_index >= 0. */
+    FbTextView diary_browse_view;
+    int diary_reopen_confirm_pending; /* awaiting a y/N reply to reopen the browsed archived page */
+    int scratchpad_new_page_confirm_pending; /* awaiting a y/N/a reply to /new_page in scratchpad */
 } FbApp;
 
 /* Shifts the wave history left and appends one new amplitude sample [0,1]. */

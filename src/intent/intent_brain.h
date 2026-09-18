@@ -1,6 +1,8 @@
 #ifndef FB_INTENT_BRAIN_H
 #define FB_INTENT_BRAIN_H
 
+#include <stddef.h>
+
 #include "app/command_dispatch.h"
 
 /* Reserved backend name for the resident Qwen intent brain, so app.c can
@@ -29,7 +31,13 @@
  * anything that doesn't parse as expected — never left uninitialized).
  * Returns -1 only if the HTTP request itself failed (server not up,
  * timeout) — out_cmd is still safely zeroed/UNKNOWN in that case too.
+ *
+ * out_raw, if non-NULL, is filled with the model's raw JSON content string
+ * (the same text out_cmd was parsed from) for display in the history
+ * panel — purely informational, callers must never re-parse it themselves.
+ * Left empty on a request failure or an empty/missing response.
  */
-int fb_intent_brain_classify(int port, const char *text, FbCommand *out_cmd);
+int fb_intent_brain_classify(int port, const char *text, FbCommand *out_cmd, char *out_raw,
+                              size_t out_raw_cap);
 
 #endif /* FB_INTENT_BRAIN_H */

@@ -2,10 +2,10 @@
  * Windows implementation of tui/screen.h. termbox2 has no Windows backend at
  * all (verified against its source), so this is a real, if minimal, Win32
  * console TUI layer: ReadConsoleInputW for input/resize, VT/SGR escape
- * sequences over WriteConsoleA for truecolor output. Restricted to ASCII
- * glyphs (0-127) for now so plain WriteConsoleA is codepage-safe; Unicode
- * block glyphs would need a WriteConsoleW path and a font/codepage
- * capability check first.
+ * sequences over WriteConsoleW for truecolor output. The escape sequences
+ * themselves are always plain ASCII (safe to widen byte-for-byte); actual
+ * glyph cells carry a full Unicode codepoint (FbCell.ch) encoded as one
+ * UTF-16 code unit, or a surrogate pair for anything above the BMP.
  */
 
 #include "tui/screen.h"
@@ -25,7 +25,7 @@ static int g_width = 0;
 static int g_height = 0;
 static FbCell *g_cells = NULL; /* g_width * g_height, row-major */
 
-static char *g_out_buf = NULL;
+static wchar_t *g_out_buf = NULL; /* count is in wchar_t units, not bytes */
 static size_t g_out_buf_cap = 0;
 
 static volatile LONG g_quit_requested = 0;
@@ -54,21 +54,66 @@ static BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
     }
 }
 
+/* Keeps the actual OS console screen buffer in lockstep with our believed
+   dimensions on every resize, not just at startup (see fb_screen_init's
+   original comment on why they're matched at all -- no scrollback to fight
+   with absolute cursor positioning). Growing is a single call, but
+   SetConsoleScreenBufferSize documents that it *fails outright* if the
+   requested size is smaller than the console's current window rect
+   (srWindow) in either dimension -- exactly the case when the user shrinks
+   the window. Left unhandled, that failure is silent: our g_width/g_cells
+   shrink to the new size regardless (nothing here checks the return
+   value), but the OS buffer stays at its old, larger size, so the window
+   still shows stale leftover content past our new, smaller edge -- read as
+   the old content "pushing" against whatever just got drawn into the
+   actually-live area. The fix is the documented shrink-then-resize
+   sequence: shrink the window rect first (so it's never larger than the
+   buffer we're about to request), resize the buffer, then grow the window
+   back out to exactly match -- restoring the no-scrollback invariant
+   either way, growing or shrinking. */
+static void set_console_buffer_size(HANDLE hout, int width, int height) {
+    if (!hout) return;
+
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    if (GetConsoleScreenBufferInfo(hout, &info)) {
+        int window_w = info.srWindow.Right - info.srWindow.Left + 1;
+        int window_h = info.srWindow.Bottom - info.srWindow.Top + 1;
+        if (width < window_w || height < window_h) {
+            SMALL_RECT shrink = info.srWindow;
+            if (width < window_w) shrink.Right = (SHORT)(shrink.Left + width - 1);
+            if (height < window_h) shrink.Bottom = (SHORT)(shrink.Top + height - 1);
+            SetConsoleWindowInfo(hout, TRUE, &shrink);
+        }
+    }
+
+    COORD buf_size;
+    buf_size.X = (SHORT)width;
+    buf_size.Y = (SHORT)height;
+    SetConsoleScreenBufferSize(hout, buf_size);
+
+    SMALL_RECT full = {0, 0, (SHORT)(width - 1), (SHORT)(height - 1)};
+    SetConsoleWindowInfo(hout, TRUE, &full);
+}
+
 static void resize_buffers(int width, int height) {
     if (width < 1) width = 1;
     if (height < 1) height = 1;
+
+    set_console_buffer_size(g_hout, width, height);
+
     free(g_cells);
     g_width = width;
     g_height = height;
     g_cells = (FbCell *)calloc((size_t)width * (size_t)height, sizeof(FbCell));
 
-    /* Worst case per cell: a full SGR fg+bg change (~40 bytes) plus one
-       character; a per-row cursor-position escape (~12 bytes) is negligible
-       against that. Rounded up generously; present() never writes past
-       g_out_buf_cap because it only ever appends bytes it has room for. */
+    /* Worst case per cell: a full SGR fg+bg change (~40 ASCII chars, each
+       one wchar_t unit) plus one glyph (up to a 2-unit surrogate pair); a
+       per-row cursor-position escape (~12 units) is negligible against
+       that. Rounded up generously; present() never writes past
+       g_out_buf_cap because it only ever appends units it has room for. */
     size_t cap = (size_t)width * (size_t)height * 48 + (size_t)height * 16 + 64;
     free(g_out_buf);
-    g_out_buf = (char *)malloc(cap);
+    g_out_buf = (wchar_t *)malloc(cap * sizeof(wchar_t));
     g_out_buf_cap = g_out_buf ? cap : 0;
 }
 
@@ -101,13 +146,9 @@ int fb_screen_init(void) {
     int width = info.srWindow.Right - info.srWindow.Left + 1;
     int height = info.srWindow.Bottom - info.srWindow.Top + 1;
 
-    /* Match the scroll buffer to the visible window so there is no
-       scrollback to fight with absolute cursor positioning. */
-    COORD buf_size;
-    buf_size.X = (SHORT)width;
-    buf_size.Y = (SHORT)height;
-    SetConsoleScreenBufferSize(g_hout, buf_size);
-
+    /* resize_buffers matches the scroll buffer to this size too (via
+       set_console_buffer_size), so there is no scrollback to fight with
+       absolute cursor positioning. */
     resize_buffers(width, height);
     if (!g_cells || !g_out_buf) return -1;
 
@@ -155,10 +196,19 @@ void fb_screen_set_cell(int x, int y, const FbCell *cell) {
     g_cells[y * g_width + x] = *cell;
 }
 
-static size_t append(char *buf, size_t cap, size_t off, const char *s, size_t len) {
+/* Widens an ASCII (always < 0x80) escape-sequence byte string one-for-one
+   into wchar_t units -- safe because these strings are always our own
+   snprintf'd escape codes, never arbitrary text. */
+static size_t append_ascii(wchar_t *buf, size_t cap, size_t off, const char *s, size_t len) {
     if (off + len > cap) return off; /* drop rather than overrun; cap is sized generously */
-    memcpy(buf + off, s, len);
+    for (size_t i = 0; i < len; ++i) buf[off + i] = (wchar_t)(unsigned char)s[i];
     return off + len;
+}
+
+static size_t append_wchar(wchar_t *buf, size_t cap, size_t off, wchar_t ch) {
+    if (off + 1 > cap) return off;
+    buf[off] = ch;
+    return off + 1;
 }
 
 void fb_screen_present(void) {
@@ -167,9 +217,19 @@ void fb_screen_present(void) {
     size_t off = 0;
     char tmp[64];
 
+    /* "Synchronized output" (DEC private mode 2026): tells a supporting
+       terminal (Windows Terminal included) to hold rendering until the
+       matching end marker rather than painting whatever's in its buffer
+       mid-write. Every frame here is a full-screen repaint sent as one
+       WriteConsoleW call, which a terminal can still sample partway
+       through -- exactly what reads as flicker/tearing on a full redraw at
+       ~30fps. A terminal that doesn't recognize the sequence just ignores
+       it as an unknown private mode, so this is free on anything else. */
+    off = append_ascii(g_out_buf, g_out_buf_cap, off, "\x1b[?2026h", 8);
+
     for (int y = 0; y < g_height; ++y) {
         int n = snprintf(tmp, sizeof(tmp), "\x1b[%d;1H", y + 1);
-        off = append(g_out_buf, g_out_buf_cap, off, tmp, (size_t)n);
+        off = append_ascii(g_out_buf, g_out_buf_cap, off, tmp, (size_t)n);
 
         int have_color = 0;
         uint8_t last_fg_r = 0, last_fg_g = 0, last_fg_b = 0;
@@ -182,26 +242,41 @@ void fb_screen_present(void) {
                 c->bg_g != last_bg_g || c->bg_b != last_bg_b) {
                 n = snprintf(tmp, sizeof(tmp), "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm",
                              c->fg_r, c->fg_g, c->fg_b, c->bg_r, c->bg_g, c->bg_b);
-                off = append(g_out_buf, g_out_buf_cap, off, tmp, (size_t)n);
+                off = append_ascii(g_out_buf, g_out_buf_cap, off, tmp, (size_t)n);
                 last_fg_r = c->fg_r; last_fg_g = c->fg_g; last_fg_b = c->fg_b;
                 last_bg_r = c->bg_r; last_bg_g = c->bg_g; last_bg_b = c->bg_b;
                 have_color = 1;
             }
-            char ch = (c->ch >= 0x20 && c->ch < 0x7f) ? (char)c->ch : ' ';
-            off = append(g_out_buf, g_out_buf_cap, off, &ch, 1);
+
+            uint32_t cp = c->ch;
+            if (cp < 0x20 || (cp >= 0xD800 && cp <= 0xDFFF)) cp = ' '; /* control char / lone surrogate value */
+            if (cp <= 0xFFFF) {
+                off = append_wchar(g_out_buf, g_out_buf_cap, off, (wchar_t)cp);
+            } else if (cp <= 0x10FFFF) {
+                uint32_t v = cp - 0x10000;
+                off = append_wchar(g_out_buf, g_out_buf_cap, off, (wchar_t)(0xD800 + (v >> 10)));
+                off = append_wchar(g_out_buf, g_out_buf_cap, off, (wchar_t)(0xDC00 + (v & 0x3FF)));
+            } else {
+                off = append_wchar(g_out_buf, g_out_buf_cap, off, L' ');
+            }
         }
     }
 
+    off = append_ascii(g_out_buf, g_out_buf_cap, off, "\x1b[?2026l", 8);
+
     DWORD written;
-    WriteConsoleA(g_hout, g_out_buf, (DWORD)off, &written, NULL);
+    WriteConsoleW(g_hout, g_out_buf, (DWORD)off, &written, NULL);
 }
 
 static FbKeyCode map_key(const KEY_EVENT_RECORD *k, uint32_t *out_ch) {
     *out_ch = 0;
     int ctrl = (k->dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) != 0;
+    int alt = (k->dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) != 0;
 
     if (ctrl && (k->wVirtualKeyCode == VK_SPACE)) return FB_KEY_CTRL_SPACE;
     if (k->uChar.UnicodeChar == 0x03) return FB_KEY_CTRL_C;
+    if (alt && k->wVirtualKeyCode == VK_LEFT) return FB_KEY_ALT_LEFT;
+    if (alt && k->wVirtualKeyCode == VK_RIGHT) return FB_KEY_ALT_RIGHT;
 
     switch (k->wVirtualKeyCode) {
     case VK_RETURN: return FB_KEY_ENTER;
@@ -212,6 +287,16 @@ static FbKeyCode map_key(const KEY_EVENT_RECORD *k, uint32_t *out_ch) {
     case VK_DOWN: return FB_KEY_ARROW_DOWN;
     case VK_LEFT: return FB_KEY_ARROW_LEFT;
     case VK_RIGHT: return FB_KEY_ARROW_RIGHT;
+    case VK_F1: return FB_KEY_F1;
+    case VK_F2: return FB_KEY_F2;
+    case VK_F3: return FB_KEY_F3;
+    case VK_F4: return FB_KEY_F4;
+    case VK_F5: return FB_KEY_F5;
+    case VK_F6: return FB_KEY_F6;
+    case VK_F7: return FB_KEY_F7;
+    case VK_F10: return FB_KEY_F10;
+    case VK_PRIOR: return FB_KEY_PAGE_UP;
+    case VK_NEXT: return FB_KEY_PAGE_DOWN;
     default: break;
     }
 

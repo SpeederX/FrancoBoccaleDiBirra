@@ -52,8 +52,20 @@ static FbKeyCode map_key(const struct tb_event *ev, uint32_t *out_ch) {
     if (ev->key == TB_KEY_TAB) return FB_KEY_TAB;
     if (ev->key == TB_KEY_ARROW_UP) return FB_KEY_ARROW_UP;
     if (ev->key == TB_KEY_ARROW_DOWN) return FB_KEY_ARROW_DOWN;
+    if ((ev->mod & TB_MOD_ALT) && ev->key == TB_KEY_ARROW_LEFT) return FB_KEY_ALT_LEFT;
+    if ((ev->mod & TB_MOD_ALT) && ev->key == TB_KEY_ARROW_RIGHT) return FB_KEY_ALT_RIGHT;
     if (ev->key == TB_KEY_ARROW_LEFT) return FB_KEY_ARROW_LEFT;
     if (ev->key == TB_KEY_ARROW_RIGHT) return FB_KEY_ARROW_RIGHT;
+    if (ev->key == TB_KEY_F1) return FB_KEY_F1;
+    if (ev->key == TB_KEY_F2) return FB_KEY_F2;
+    if (ev->key == TB_KEY_F3) return FB_KEY_F3;
+    if (ev->key == TB_KEY_F4) return FB_KEY_F4;
+    if (ev->key == TB_KEY_F5) return FB_KEY_F5;
+    if (ev->key == TB_KEY_F6) return FB_KEY_F6;
+    if (ev->key == TB_KEY_F7) return FB_KEY_F7;
+    if (ev->key == TB_KEY_F10) return FB_KEY_F10;
+    if (ev->key == TB_KEY_PGUP) return FB_KEY_PAGE_UP;
+    if (ev->key == TB_KEY_PGDN) return FB_KEY_PAGE_DOWN;
     if (ev->ch != 0) {
         *out_ch = ev->ch;
         return FB_KEY_CHAR;

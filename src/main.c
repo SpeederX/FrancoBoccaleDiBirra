@@ -6,7 +6,9 @@
 #include "platform/platform.h"
 #include "tui/screen.h"
 
-int main(void) {
+int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     fb_sock_platform_init();
 
     if (fb_screen_init() != 0) {

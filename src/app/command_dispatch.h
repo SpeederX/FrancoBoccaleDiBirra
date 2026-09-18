@@ -11,6 +11,8 @@ typedef enum {
     FB_CMD_REMOVE,
     FB_CMD_LANG,
     FB_CMD_DOWNLOAD, /* parsed now, reserved; not implemented until a later phase */
+    FB_CMD_LIST,     /* /list or /models: registered models and their loaded state */
+    FB_CMD_NEW_PAGE, /* diary mode only: manually close the live page and start a fresh one */
     FB_CMD_LEADERBOARD,
     FB_CMD_LOGS,
     FB_CMD_DASHBOARD,

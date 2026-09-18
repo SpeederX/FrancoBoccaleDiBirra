@@ -10,8 +10,7 @@
 #include "audio/ring_buffer.h"
 
 #define FB_LEVEL_RB_CAPACITY 256
-#define FB_MAX_RECORD_SECONDS 30
-#define FB_MAX_RECORD_SAMPLES ((size_t)FB_MIC_SAMPLE_RATE * FB_MAX_RECORD_SECONDS)
+#define FB_MAX_RECORD_SAMPLES ((size_t)FB_MIC_SAMPLE_RATE * FB_MIC_MAX_RECORD_SECONDS)
 
 static ma_device g_device;
 static int g_device_started = 0;

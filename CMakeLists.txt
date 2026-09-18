@@ -42,6 +42,9 @@ add_executable(fbdb
     src/tui/widget_cmdline.c
     src/tui/fx_sphere.c
     src/tui/fx_waveform.c
+    src/tui/fx_pencil.c
+    src/tui/fx_hypercube.c
+    src/tui/fx_tetris.c
     src/tui/widget_file_picker.c
     src/tui/widget_textview.c
     src/calibr/calibr_paths.c
@@ -56,7 +59,11 @@ add_executable(fbdb
     src/config/config.c
     src/transcribe/transcribe.c
     src/intent/intent_brain.c
+    src/chat/chat_job.c
+    src/diary/diary_job.c
+    src/diary/diary.c
     src/util/fileutil.c
+    src/util/utf8.c
 )
 target_link_libraries(fbdb PRIVATE miniaudio)
 target_include_directories(fbdb PRIVATE src)
@@ -75,6 +82,7 @@ if (WIN32)
         src/platform/win/sock_win.c
         src/platform/win/proc_win.c
         src/platform/win/dirlist_win.c
+        src/platform/win/thread_win.c
     )
     target_link_libraries(fbdb PRIVATE ws2_32 ole32)
     target_compile_definitions(fbdb PRIVATE
@@ -88,6 +96,7 @@ else()
         src/platform/posix/sock_posix.c
         src/platform/posix/proc_posix.c
         src/platform/posix/dirlist_posix.c
+        src/platform/posix/thread_posix.c
     )
     target_link_libraries(fbdb PRIVATE termbox2 pthread m)
     target_compile_definitions(fbdb PRIVATE

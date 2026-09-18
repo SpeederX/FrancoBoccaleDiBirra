@@ -6,9 +6,30 @@
 
 #include "backend/backend_mgr.h"
 #include "calibr/calibr_results.h"
+#include "chat/chat_job.h"
 #include "config/config.h"
+#include "diary/diary.h"
+#include "intent/intent_brain.h"
 #include "platform/dirlist.h"
+#include "tui/widget_textview.h"
 #include "util/paths.h"
+
+/* The always-resident Qwen brain lives in backend_mgr right alongside any
+   user-loaded model, so a plain backend_mgr.count == 1 check for "just one
+   [user] model loaded" is wrong whenever the brain is running too --
+   confirmed the hard way: with the brain up, count is 2 even with a single
+   real model loaded, so /unload's auto-select silently never fired. This
+   counts (and finds) only the non-brain entries. */
+static int count_non_brain_backends(const FbBackendMgr *mgr, const char **out_sole_name) {
+    int count = 0;
+    for (int i = 0; i < mgr->count; ++i) {
+        if (strcmp(mgr->items[i].name, FB_QWEN_BRAIN_NAME) != 0) {
+            if (out_sole_name) *out_sole_name = mgr->items[i].name;
+            count++;
+        }
+    }
+    return count;
+}
 
 static const char *skip_ws(const char *s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -51,6 +72,8 @@ FbCommand fb_command_parse(const char *line) {
     else if (strcmp(verb, "remove") == 0) cmd.kind = FB_CMD_REMOVE;
     else if (strcmp(verb, "lang") == 0) cmd.kind = FB_CMD_LANG;
     else if (strcmp(verb, "download") == 0) cmd.kind = FB_CMD_DOWNLOAD;
+    else if (strcmp(verb, "list") == 0 || strcmp(verb, "models") == 0) cmd.kind = FB_CMD_LIST;
+    else if (strcmp(verb, "new_page") == 0) cmd.kind = FB_CMD_NEW_PAGE;
     else if (strcmp(verb, "leaderboard") == 0) cmd.kind = FB_CMD_LEADERBOARD;
     else if (strcmp(verb, "logs") == 0) cmd.kind = FB_CMD_LOGS;
     else if (strcmp(verb, "dashboard") == 0) cmd.kind = FB_CMD_DASHBOARD;
@@ -138,14 +161,18 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         if (cmd->arg1[0] != '\0') {
             strncpy(name, cmd->arg1, sizeof(name) - 1);
             name[sizeof(name) - 1] = '\0';
-        } else if (app->backend_mgr.count == 1) {
-            strncpy(name, app->backend_mgr.items[0].name, sizeof(name) - 1);
-            name[sizeof(name) - 1] = '\0';
         } else {
-            set_status(app, app->backend_mgr.count == 0
-                                 ? "usage: /unload <model> (nothing loaded)"
-                                 : "usage: /unload <model> (multiple loaded -- tab-completes)");
-            return;
+            const char *sole_name = NULL;
+            int non_brain_count = count_non_brain_backends(&app->backend_mgr, &sole_name);
+            if (non_brain_count == 1) {
+                strncpy(name, sole_name, sizeof(name) - 1);
+                name[sizeof(name) - 1] = '\0';
+            } else {
+                set_status(app, non_brain_count == 0
+                                     ? "usage: /unload <model> (nothing loaded)"
+                                     : "usage: /unload <model> (multiple loaded -- tab-completes)");
+                return;
+            }
         }
         if (fb_backend_mgr_unload(&app->backend_mgr, name) != 0) {
             set_status_fmt(app, "'%s' is not loaded", name);
@@ -191,17 +218,28 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         return;
     }
     case FB_CMD_REMOVE: {
-        if (cmd->arg1[0] == '\0') {
-            set_status(app, "usage: /remove <model>");
+        /* Copied, not aliased: fb_config_remove_model() shifts models[] on
+           removal, same hazard as FB_CMD_UNLOAD's name above. */
+        char name[FB_BACKEND_NAME_MAX];
+        if (cmd->arg1[0] != '\0') {
+            strncpy(name, cmd->arg1, sizeof(name) - 1);
+            name[sizeof(name) - 1] = '\0';
+        } else if (app->config.model_count == 1) {
+            strncpy(name, app->config.models[0].name, sizeof(name) - 1);
+            name[sizeof(name) - 1] = '\0';
+        } else {
+            set_status(app, app->config.model_count == 0
+                                 ? "usage: /remove <model> (nothing registered yet)"
+                                 : "usage: /remove <model> (multiple registered -- tab-completes)");
             return;
         }
-        fb_backend_mgr_unload(&app->backend_mgr, cmd->arg1); /* no-op if not loaded */
-        if (fb_config_remove_model(&app->config, cmd->arg1) != 0) {
-            set_status_fmt(app, "'%s' is not registered", cmd->arg1);
+        fb_backend_mgr_unload(&app->backend_mgr, name); /* no-op if not loaded */
+        if (fb_config_remove_model(&app->config, name) != 0) {
+            set_status_fmt(app, "'%s' is not registered", name);
             return;
         }
         fb_config_save(&app->config, app->data_dir);
-        set_status_fmt(app, "removed '%s'", cmd->arg1);
+        set_status_fmt(app, "removed '%s'", name);
         return;
     }
     case FB_CMD_LANG:
@@ -221,6 +259,56 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
     case FB_CMD_DOWNLOAD:
         set_status(app, "/download: not implemented yet");
         return;
+    case FB_CMD_LIST: {
+        if (app->config.model_count == 0) {
+            set_status(app, "no models registered -- /add one first");
+            return;
+        }
+        char line[FB_CMDLINE_MAX];
+        size_t off = 0;
+        for (int i = 0; i < app->config.model_count && off < sizeof(line) - 1; ++i) {
+            FbBackendInstance *b = fb_backend_mgr_find(&app->backend_mgr, app->config.models[i].name);
+            int n = snprintf(line + off, sizeof(line) - off, "%s%s%s", i > 0 ? "  " : "",
+                              app->config.models[i].name, b ? " [loaded]" : "");
+            if (n > 0) off += (size_t)n;
+        }
+        set_status(app, line);
+        return;
+    }
+    case FB_CMD_NEW_PAGE:
+        if (app->input_mode == FB_INPUT_MODE_DIARY) {
+            if (!app->diary.page_has_content) {
+                set_status(app, "diary: already on a fresh page");
+                return;
+            }
+            if (fb_diary_busy(&app->diary)) {
+                set_status(app,
+                           "diary: still consolidating the previous page -- try again in a moment");
+                return;
+            }
+            fb_diary_close_page(&app->diary);
+            fb_chat_reset(&app->diary_chat_job);
+            fb_textview_clear(&app->diary_live_view);
+            fb_textview_add_line_styled(&app->diary_live_view, "-- new page --",
+                                         FB_TEXTVIEW_STYLE_HEADER);
+            fb_textview_add_line(&app->diary_live_view, "");
+            set_status_fmt(app, "diary: started a new page (%d archived so far)",
+                           app->diary.archived_count);
+            return;
+        }
+        if (app->input_mode == FB_INPUT_MODE_SCRATCHPAD) {
+            /* Scratchpad keeps no durable record by design -- unlike
+               diary's always-safe close, this can actually lose the
+               transcript, so it's a confirmation (handled in
+               fb_app_handle_event, which owns the y/N/a key reply), not an
+               immediate action. */
+            app->scratchpad_new_page_confirm_pending = 1;
+            set_status(app, "start a new scratchpad page? everything here will be lost unless "
+                            "archived -- discard, archive, or cancel? (y/N/a)");
+            return;
+        }
+        set_status(app, "/new_page only applies to scratchpad/diary mode (Tab to switch)");
+        return;
     case FB_CMD_LEADERBOARD:
         fb_calibr_load_leaderboard(&app->leaderboard_view, app->calibr_root);
         app->view = FB_VIEW_LEADERBOARD;
@@ -237,8 +325,9 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         set_status(app, "back to dashboard");
         return;
     case FB_CMD_HELP:
-        set_status(app, "/load /unload /add <name> <path> /remove /lang /leaderboard /logs "
-                        "/dashboard /download /help /quit -- ctrl+space toggles mic recording");
+        set_status(app, "/load /unload /add <name> <path> /remove /list /new_page /lang "
+                        "/leaderboard /logs /dashboard /download /help /quit -- ctrl+space "
+                        "toggles mic recording");
         return;
     case FB_CMD_QUIT:
         app->running = 0;

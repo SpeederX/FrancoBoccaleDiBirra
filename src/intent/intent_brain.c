@@ -8,15 +8,40 @@
 #include "intent/intent_schema.h"
 #include "net/http_client.h"
 
+static int eq_ci(const char *a, const char *b) {
+    for (; *a && *b; ++a, ++b) {
+        char ca = (*a >= 'A' && *a <= 'Z') ? (char)(*a + 32) : *a;
+        char cb = (*b >= 'A' && *b <= 'Z') ? (char)(*b + 32) : *b;
+        if (ca != cb) return 0;
+    }
+    return *a == *b;
+}
+
+/* The schema declares "model" as ["string", "null"], but confirmed
+   directly against a real classify response (input "load", nothing else
+   specified) that this ~1B model doesn't reliably emit a real JSON null
+   for an unset field -- it emits the literal string "None" instead
+   (Python's null spelling, not JSON's), for every nullable field at once.
+   Treating that string as an actual model name sent a real lookup for a
+   model called "None" instead of falling through to /load's own "exactly
+   one registered -- use it" default. Normalize the handful of placeholder
+   spellings a small model might use to "no value", same as a real null. */
+static int is_null_placeholder(const char *s) {
+    return s[0] == '\0' || eq_ci(s, "none") || eq_ci(s, "null") || eq_ci(s, "n/a") ||
+           eq_ci(s, "unspecified") || eq_ci(s, "unknown");
+}
+
 static void set_arg1(FbCommand *cmd, const cJSON *value) {
-    if (cJSON_IsString(value)) {
+    if (cJSON_IsString(value) && !is_null_placeholder(value->valuestring)) {
         snprintf(cmd->arg1, sizeof(cmd->arg1), "%s", value->valuestring);
     }
 }
 
-int fb_intent_brain_classify(int port, const char *text, FbCommand *out_cmd) {
+int fb_intent_brain_classify(int port, const char *text, FbCommand *out_cmd, char *out_raw,
+                              size_t out_raw_cap) {
     memset(out_cmd, 0, sizeof(*out_cmd));
     out_cmd->kind = FB_CMD_UNKNOWN;
+    if (out_raw && out_raw_cap > 0) out_raw[0] = '\0';
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "model", "qwen");
@@ -60,6 +85,8 @@ int fb_intent_brain_classify(int port, const char *text, FbCommand *out_cmd) {
         cJSON_Delete(outer);
         return 0; /* stays FB_CMD_UNKNOWN */
     }
+
+    if (out_raw && out_raw_cap > 0) snprintf(out_raw, out_raw_cap, "%s", content->valuestring);
 
     cJSON *inner = cJSON_Parse(content->valuestring); /* copies the string; safe before deleting outer */
     cJSON_Delete(outer);
