@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "net/llama_client.h"
+#include "net/openai_client.h"
 #include "net/sockets_compat.h"
 #include "platform/platform.h"
 #include "util/paths.h"
@@ -26,9 +26,63 @@ FbBackendInstance *fb_backend_mgr_find(FbBackendMgr *mgr, const char *name) {
     return NULL;
 }
 
+/* Each engine's server CLI shape. llama.cpp and Siliang (SpeederX's
+   llama.cpp fork) share one shape; vLLM and SGLang each have their own --
+   see backend_types.h's FbBackendKind comment for what's confirmed vs.
+   assumed about each. */
+static int build_argv(FbBackendKind kind, const char *exe, const char *model_path,
+                       const char *port_str, const char *const *extra_args, const char **argv,
+                       int max_argv) {
+    int argc = 0;
+    switch (kind) {
+    case FB_BACKEND_VLLM:
+        /* `vllm serve <model> --port P --host H` -- the modern, documented
+           vLLM CLI (0.4+). model_path can be a local directory or a
+           Hugging Face repo id; vLLM resolves either the same way. */
+        argv[argc++] = exe;
+        argv[argc++] = "serve";
+        argv[argc++] = model_path;
+        argv[argc++] = "--port";
+        argv[argc++] = port_str;
+        argv[argc++] = "--host";
+        argv[argc++] = "127.0.0.1";
+        break;
+    case FB_BACKEND_SGLANG:
+        /* `python -m sglang.launch_server --model-path <model> --port P
+           --host H` -- exe here is the python interpreter (see config.h's
+           fb_resolve_sglang_python), not a standalone sglang binary. */
+        argv[argc++] = exe;
+        argv[argc++] = "-m";
+        argv[argc++] = "sglang.launch_server";
+        argv[argc++] = "--model-path";
+        argv[argc++] = model_path;
+        argv[argc++] = "--port";
+        argv[argc++] = port_str;
+        argv[argc++] = "--host";
+        argv[argc++] = "127.0.0.1";
+        break;
+    case FB_BACKEND_LLAMA_CPP:
+    case FB_BACKEND_SILIANG:
+    default:
+        argv[argc++] = exe;
+        argv[argc++] = "-m";
+        argv[argc++] = model_path;
+        argv[argc++] = "--port";
+        argv[argc++] = port_str;
+        argv[argc++] = "--host";
+        argv[argc++] = "127.0.0.1";
+        break;
+    }
+    if (extra_args) {
+        for (int i = 0; extra_args[i] && argc < max_argv - 1; ++i) argv[argc++] = extra_args[i];
+    }
+    argv[argc] = NULL;
+    return argc;
+}
+
 int fb_backend_mgr_load(FbBackendMgr *mgr, const char *name, const char *model_path,
-                         const char *llama_server_exe, const char *data_dir, int requested_port,
-                         const char *const *extra_args) {
+                         FbBackendKind kind, const char *backend_exe, const char *data_dir,
+                         int requested_port, const char *const *extra_args) {
     FbBackendInstance *existing = fb_backend_mgr_find(mgr, name);
     if (existing) {
         /* A dead/errored entry shouldn't block retrying /load — clean it up
@@ -49,23 +103,10 @@ int fb_backend_mgr_load(FbBackendMgr *mgr, const char *name, const char *model_p
     snprintf(port_str, sizeof(port_str), "%d", port);
 
     const char *argv[FB_BACKEND_MAX_ARGV];
-    int argc = 0;
-    argv[argc++] = llama_server_exe;
-    argv[argc++] = "-m";
-    argv[argc++] = model_path;
-    argv[argc++] = "--port";
-    argv[argc++] = port_str;
-    argv[argc++] = "--host";
-    argv[argc++] = "127.0.0.1";
-    if (extra_args) {
-        for (int i = 0; extra_args[i] && argc < FB_BACKEND_MAX_ARGV - 1; ++i) {
-            argv[argc++] = extra_args[i];
-        }
-    }
-    argv[argc] = NULL;
+    build_argv(kind, backend_exe, model_path, port_str, extra_args, argv, FB_BACKEND_MAX_ARGV);
 
     char logs_dir[FB_BACKEND_PATH_MAX];
-    char log_path[FB_BACKEND_PATH_MAX];   /* stderr: llama-server's diagnostics live here */
+    char log_path[FB_BACKEND_PATH_MAX];    /* stderr: the server's diagnostics live here */
     char stdout_path[FB_BACKEND_PATH_MAX]; /* captured for completeness, not surfaced in the UI */
     snprintf(logs_dir, sizeof(logs_dir), "%s/logs", data_dir);
     fb_ensure_dir(logs_dir);
@@ -80,7 +121,7 @@ int fb_backend_mgr_load(FbBackendMgr *mgr, const char *name, const char *model_p
     strncpy(slot->name, name, FB_BACKEND_NAME_MAX - 1);
     strncpy(slot->model_path, model_path, FB_BACKEND_PATH_MAX - 1);
     strncpy(slot->log_path, log_path, FB_BACKEND_PATH_MAX - 1);
-    slot->kind = FB_BACKEND_LLAMA_CPP;
+    slot->kind = kind;
     slot->state = FB_BACKEND_STARTING;
     slot->port = port;
     slot->proc = proc;
@@ -117,7 +158,7 @@ void fb_backend_mgr_tick(FbBackendMgr *mgr) {
         if (now - b->last_health_probe_ms < FB_HEALTH_PROBE_INTERVAL_MS) continue;
         b->last_health_probe_ms = now;
 
-        if (fb_llama_health(b->port, FB_HEALTH_PROBE_TIMEOUT_MS)) {
+        if (fb_backend_health(b->port, FB_HEALTH_PROBE_TIMEOUT_MS)) {
             b->state = FB_BACKEND_UP;
         } else if (b->state == FB_BACKEND_UP) {
             /* was healthy, isn't anymore, but the process is still alive:

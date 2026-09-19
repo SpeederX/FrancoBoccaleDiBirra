@@ -55,7 +55,7 @@ add_executable(fbdb
     src/audio/mic_capture.c
     src/audio/wav_writer.c
     src/net/http_client.c
-    src/net/llama_client.c
+    src/net/openai_client.c
     src/backend/backend_mgr.c
     src/config/config.c
     src/transcribe/transcribe.c
@@ -90,6 +90,9 @@ if (WIN32)
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server.exe"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline.exe"
+        FB_SILIANG_DEFAULT_NAME="siliang-server.exe"
+        FB_VLLM_DEFAULT_NAME="vllm.exe"
+        FB_SGLANG_PYTHON_DEFAULT_NAME="python.exe"
     )
 else()
     target_sources(fbdb PRIVATE
@@ -105,6 +108,9 @@ else()
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline"
+        FB_SILIANG_DEFAULT_NAME="siliang-server"
+        FB_VLLM_DEFAULT_NAME="vllm"
+        FB_SGLANG_PYTHON_DEFAULT_NAME="python3"
     )
 endif()
 

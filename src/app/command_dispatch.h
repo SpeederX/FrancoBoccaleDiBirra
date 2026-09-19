@@ -26,13 +26,14 @@ typedef struct {
     FbCommandKind kind;
     char arg1[FB_CMD_ARG_MAX]; /* meaning depends on kind: model/lang name */
     char arg2[FB_CMD_ARG_MAX]; /* e.g. /add's path */
+    char arg3[FB_CMD_ARG_MAX]; /* /add's optional backend kind (llama/siliang/vllm/sglang) */
 } FbCommand;
 
-/* Parses a typed line like "/load name" or "/add name path". A line with
-   no leading '/' or an unrecognized verb yields FB_CMD_UNKNOWN rather than
-   failing — the caller decides what to do with unrecognized input (in
-   milestone 7, that's where free text gets handed to the Qwen intent
-   brain instead). */
+/* Parses a typed line like "/load name" or "/add name path [backend]". A
+   line with no leading '/' or an unrecognized verb yields FB_CMD_UNKNOWN
+   rather than failing — the caller decides what to do with unrecognized
+   input (in milestone 7, that's where free text gets handed to the Qwen
+   intent brain instead). */
 FbCommand fb_command_parse(const char *line);
 
 /* Executes a command against app's state (backend manager, model

@@ -483,7 +483,7 @@ static int resolve_models(const char *models_arg, const FbConfig *cfg,
         char trimmed[FB_BACKEND_NAME_MAX];
         snprintf(trimmed, sizeof(trimmed), "%s", tok);
         char path[FB_BACKEND_PATH_MAX];
-        if (fb_config_find_model(cfg, trimmed, path, sizeof(path))) {
+        if (fb_config_find_model(cfg, trimmed, path, sizeof(path), NULL)) {
             snprintf(names[count++], FB_BACKEND_NAME_MAX, "%s", trimmed);
         } else {
             fprintf(stderr, "skipping unknown model '%s' (not in config.json)\n", trimmed);
@@ -710,10 +710,18 @@ int fb_sweep_run(int argc, char **argv) {
         fflush(stdout);
 
         char model_path[FB_BACKEND_PATH_MAX];
-        int spawned =
-            fb_config_find_model(&cfg, model_names[m], model_path, sizeof(model_path)) &&
-            fb_backend_mgr_load(&mgr, model_names[m], model_path, llama_server_path, data_dir, 0,
-                                 NULL) == 0;
+        FbBackendKind kind = FB_BACKEND_LLAMA_CPP;
+        int found = fb_config_find_model(&cfg, model_names[m], model_path, sizeof(model_path), &kind);
+        char backend_exe[FB_BACKEND_PATH_MAX];
+        switch (kind) {
+        case FB_BACKEND_SILIANG: fb_resolve_siliang_exe(&cfg, backend_exe, sizeof(backend_exe)); break;
+        case FB_BACKEND_VLLM: fb_resolve_vllm_exe(&cfg, backend_exe, sizeof(backend_exe)); break;
+        case FB_BACKEND_SGLANG: fb_resolve_sglang_python(&cfg, backend_exe, sizeof(backend_exe)); break;
+        case FB_BACKEND_LLAMA_CPP:
+        default: snprintf(backend_exe, sizeof(backend_exe), "%s", llama_server_path); break;
+        }
+        int spawned = found && fb_backend_mgr_load(&mgr, model_names[m], model_path, kind,
+                                                     backend_exe, data_dir, 0, NULL) == 0;
         FbSweepLoadResult load_result = FB_SWEEP_LOAD_CRASHED;
         if (spawned) load_result = wait_for_up_or_error(&mgr, model_names[m], load_timeout_ms);
         int loaded = load_result == FB_SWEEP_LOAD_UP;

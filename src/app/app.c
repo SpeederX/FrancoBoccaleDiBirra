@@ -56,7 +56,7 @@ void fb_app_init(FbApp *app, int width, int height) {
            sitting idle). Capped hard so this always-resident process stays
            the lightweight one. */
         const char *extra_args[] = {"--reasoning", "off", "--ctx-size", "8192", NULL};
-        fb_backend_mgr_load(&app->backend_mgr, FB_QWEN_BRAIN_NAME, qwen_model,
+        fb_backend_mgr_load(&app->backend_mgr, FB_QWEN_BRAIN_NAME, qwen_model, FB_BACKEND_LLAMA_CPP,
                              app->llama_server_path, app->data_dir, fb_resolve_qwen_port(&app->config),
                              extra_args);
     }
@@ -623,7 +623,8 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                     fb_command_execute(app, &add_cmd);
 
                     char check_path[FB_BACKEND_PATH_MAX];
-                    if (fb_config_find_model(&app->config, name, check_path, sizeof(check_path))) {
+                    if (fb_config_find_model(&app->config, name, check_path, sizeof(check_path),
+                                              NULL)) {
                         FbCommand load_cmd;
                         memset(&load_cmd, 0, sizeof(load_cmd));
                         load_cmd.kind = FB_CMD_LOAD;

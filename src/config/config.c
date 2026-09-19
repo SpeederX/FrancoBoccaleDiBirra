@@ -12,6 +12,29 @@ static void build_path(char *out, size_t cap, const char *data_dir) {
     snprintf(out, cap, "%s/config.json", data_dir);
 }
 
+/* Persisted as a name, not a raw enum integer -- config.json is meant to
+   be hand-edited (see the README), and a name survives an enum reorder
+   where a stored integer wouldn't. Unrecognized/missing reads back as
+   llama.cpp (0), matching FbBackendKind's own legacy-default reasoning. */
+static const char *backend_kind_name(FbBackendKind kind) {
+    switch (kind) {
+    case FB_BACKEND_SILIANG: return "siliang";
+    case FB_BACKEND_VLLM: return "vllm";
+    case FB_BACKEND_SGLANG: return "sglang";
+    case FB_BACKEND_LLAMA_CPP:
+    default: return "llama_cpp";
+    }
+}
+
+static FbBackendKind backend_kind_from_name(const char *name) {
+    if (name) {
+        if (strcmp(name, "siliang") == 0) return FB_BACKEND_SILIANG;
+        if (strcmp(name, "vllm") == 0) return FB_BACKEND_VLLM;
+        if (strcmp(name, "sglang") == 0) return FB_BACKEND_SGLANG;
+    }
+    return FB_BACKEND_LLAMA_CPP;
+}
+
 int fb_config_load(FbConfig *cfg, const char *data_dir) {
     memset(cfg, 0, sizeof(*cfg));
     strncpy(cfg->lang_pref, "en", sizeof(cfg->lang_pref) - 1);
@@ -38,6 +61,9 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
 
     struct { const char *key; char *dst; size_t cap; } str_fields[] = {
         {"llama_server_path", cfg->llama_server_path, sizeof(cfg->llama_server_path)},
+        {"siliang_exe", cfg->siliang_exe, sizeof(cfg->siliang_exe)},
+        {"vllm_exe", cfg->vllm_exe, sizeof(cfg->vllm_exe)},
+        {"sglang_python", cfg->sglang_python, sizeof(cfg->sglang_python)},
         {"sherpa_exe", cfg->sherpa_exe, sizeof(cfg->sherpa_exe)},
         {"orukeet_dir", cfg->orukeet_dir, sizeof(cfg->orukeet_dir)},
         {"qwen_model", cfg->qwen_model, sizeof(cfg->qwen_model)},
@@ -75,6 +101,8 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
             FbConfigModel *m = &cfg->models[cfg->model_count++];
             strncpy(m->name, name->valuestring, sizeof(m->name) - 1);
             strncpy(m->path, model_path->valuestring, sizeof(m->path) - 1);
+            cJSON *kind = cJSON_GetObjectItemCaseSensitive(item, "kind");
+            m->kind = backend_kind_from_name(cJSON_IsString(kind) ? kind->valuestring : NULL);
         }
     }
 
@@ -90,6 +118,9 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "last_browse_dir", cfg->last_browse_dir);
     cJSON_AddStringToObject(root, "lang_pref", cfg->lang_pref);
     cJSON_AddStringToObject(root, "llama_server_path", cfg->llama_server_path);
+    cJSON_AddStringToObject(root, "siliang_exe", cfg->siliang_exe);
+    cJSON_AddStringToObject(root, "vllm_exe", cfg->vllm_exe);
+    cJSON_AddStringToObject(root, "sglang_python", cfg->sglang_python);
     cJSON_AddStringToObject(root, "sherpa_exe", cfg->sherpa_exe);
     cJSON_AddStringToObject(root, "orukeet_dir", cfg->orukeet_dir);
     cJSON_AddStringToObject(root, "qwen_model", cfg->qwen_model);
@@ -103,6 +134,7 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
         cJSON *item = cJSON_CreateObject();
         cJSON_AddStringToObject(item, "name", cfg->models[i].name);
         cJSON_AddStringToObject(item, "path", cfg->models[i].path);
+        cJSON_AddStringToObject(item, "kind", backend_kind_name(cfg->models[i].kind));
         cJSON_AddItemToArray(models, item);
     }
 
@@ -121,20 +153,23 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     return 0;
 }
 
-int fb_config_find_model(const FbConfig *cfg, const char *name, char *out_path, size_t out_cap) {
+int fb_config_find_model(const FbConfig *cfg, const char *name, char *out_path, size_t out_cap,
+                          FbBackendKind *out_kind) {
     for (int i = 0; i < cfg->model_count; ++i) {
         if (strcmp(cfg->models[i].name, name) == 0) {
             snprintf(out_path, out_cap, "%s", cfg->models[i].path);
+            if (out_kind) *out_kind = cfg->models[i].kind;
             return 1;
         }
     }
     return 0;
 }
 
-int fb_config_add_model(FbConfig *cfg, const char *name, const char *path) {
+int fb_config_add_model(FbConfig *cfg, const char *name, const char *path, FbBackendKind kind) {
     for (int i = 0; i < cfg->model_count; ++i) {
         if (strcmp(cfg->models[i].name, name) == 0) {
             strncpy(cfg->models[i].path, path, sizeof(cfg->models[i].path) - 1);
+            cfg->models[i].kind = kind;
             return 0;
         }
     }
@@ -143,6 +178,7 @@ int fb_config_add_model(FbConfig *cfg, const char *name, const char *path) {
     FbConfigModel *m = &cfg->models[cfg->model_count++];
     strncpy(m->name, name, sizeof(m->name) - 1);
     strncpy(m->path, path, sizeof(m->path) - 1);
+    m->kind = kind;
     return 0;
 }
 
@@ -161,6 +197,33 @@ int fb_resolve_llama_server(const FbConfig *cfg, char *out_path, size_t out_cap)
     const char *src = (env && env[0] != '\0')            ? env
                        : (cfg->llama_server_path[0] != '\0') ? cfg->llama_server_path
                                                               : FB_LLAMA_SERVER_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_siliang_exe(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *env = getenv("FB_SILIANG_EXE");
+    const char *src = (env && env[0] != '\0')          ? env
+                       : (cfg->siliang_exe[0] != '\0') ? cfg->siliang_exe
+                                                        : FB_SILIANG_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_vllm_exe(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *env = getenv("FB_VLLM_EXE");
+    const char *src = (env && env[0] != '\0')       ? env
+                       : (cfg->vllm_exe[0] != '\0') ? cfg->vllm_exe
+                                                     : FB_VLLM_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_sglang_python(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *env = getenv("FB_SGLANG_PYTHON");
+    const char *src = (env && env[0] != '\0')            ? env
+                       : (cfg->sglang_python[0] != '\0') ? cfg->sglang_python
+                                                          : FB_SGLANG_PYTHON_DEFAULT_NAME;
     snprintf(out_path, out_cap, "%s", src);
     return 0;
 }
