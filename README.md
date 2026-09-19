@@ -1,8 +1,8 @@
 # FrancoBoccaleDiBirra
 
 A minimal terminal console for managing local LLM backends (llama.cpp today,
-vLLM later), with mic transcription and a small structured-output "intent
-brain" for natural-language commands.
+vLLM/SGLang planned), with mic transcription and a small structured-output
+"intent brain" for natural-language commands.
 
 ## Quickstart
 
@@ -37,6 +37,12 @@ then an auto-detected default where one is safe:
 | Qwen brain port      | `FB_QWEN_PORT`        | built-in default (8090)                                  |
 | calibr root          | `FB_CALIBR_ROOT`      | none — must be set explicitly                            |
 
+Diary's page/memory thresholds are config.json-only (no env var, they're
+tuning knobs not machine-specific paths): `diary_page_close_chars` (default
+8000), `diary_checkpoint_chars` (default 5000), `diary_idle_close_minutes`
+(default 10). 0 or unset means "use the default"; each is clamped to a hard
+buffer cap regardless of what's set.
+
 The sherpa-onnx exe and Orukeet's 4 model files just need to exist
 *somewhere* under `<data_dir>/external/` (any subfolder depth) — that's
 where a first-run setup would drop the downloaded SDK/model archives, so a
@@ -53,13 +59,16 @@ just an informational label, not a switch.
 
 ## Input modes
 
-The plan is four modes (command, scratchpad, diary, project), each with its
-own color, its own centerpiece effect where the sphere normally sits, and
-its own idea of "memory." The first three are built and selectable — project
-(folder-scoped context) is still being designed. A line with a leading `/`
-is always a command, in every mode. What happens to free text (no leading
-`/`) depends on the mode, shown by the color of the header/`>`
-prompt/cursor/F-key row and the `[Tab] ...` tag on the right of that row:
+Four modes (command, scratchpad, diary, project), each with its own color,
+its own centerpiece effect where the sphere normally sits, and its own idea
+of "memory." All four are selectable — project (folder-scoped context) is
+an intentionally empty box right now: it has its own color/effect/panel but
+no feature behind it yet (see `src/project/project.h`). A line with a
+leading `/` is always a command, in every mode. What happens to free text
+(no leading `/`) depends on the mode, shown by the color of the header/`>`
+prompt/cursor/F-key row and, split across the two rows just above the
+command line, the `[Tab] ...` mode/navigation tag (top) and that mode's live
+stats (bottom):
 
 - **command (cyan, default)** — free text goes to the Qwen intent brain,
   which tries to match it to one of the commands below. Sphere effect.
@@ -88,12 +97,27 @@ prompt/cursor/F-key row and the `[Tab] ...` tag on the right of that row:
   - Long-term memory persists across restarts (`<data_dir>/diary/`) and
     gets excerpted into the first message of a fresh diary conversation, so
     the model actually carries the distilled past forward. Every save (both
-    sleep and checkpoint) shows "diary: autosaved (N pages, M ch memory)" in
-    the status bar, and the mode tag persistently shows "saved Ns ago" so
-    you're never left guessing whether it actually wrote to disk.
+    sleep and checkpoint) shows "diary: autosaved (N pages, M chars memory)"
+    in the status bar, and the mode tag persistently shows "page #N",
+    "archived: N pages", "memory: M chars", and "saved Ns ago" so you're
+    never left guessing what's been written where.
   - **Alt+Left/Alt+Right** browse the archived pages read-only (shown in
-    place of the live history panel); switching modes away from diary
-    resets you back to "live" for next time. Hypercube effect.
+    place of the live history panel). Pressing **Enter** on an empty command
+    line while browsing asks to reopen that page — "this page was from a
+    previous session, are you sure you want to reopen it?" — which makes it
+    the live, editable page again (new turns extend that page's own file
+    directly) after safely archiving whatever was open before, untouched.
+  - **F7**/`/new_page` manually closes the current page and starts a fresh
+    one — same safe archive-and-consolidate path as an automatic close, just
+    triggered on demand. Hypercube effect.
+- **project (green)** — empty box, selectable but not implemented (see
+  above). Tetris build-up effect.
+
+Scratchpad also has `/new_page`/F7, but since scratchpad keeps no durable
+record at all by design, it asks first: "start a new scratchpad page?
+everything here will be lost unless archived — discard, archive, or
+cancel? (y/N/a)" — `a` writes the current transcript to
+`<data_dir>/scratchpad/<timestamp>.txt` before clearing.
 
 Both scratchpad's and diary's live chat requests can take a while for a
 large model; the console stays responsive while waiting (background
@@ -120,6 +144,7 @@ Type at the `>` prompt.
 | `/logs`                      | Tail calibr's action log (needs calibr root configured).             |
 | `/dashboard`                 | Back to the main view from leaderboard/logs.                         |
 | `/list` or `/models`         | Show registered models and which are currently loaded.               |
+| `/new_page`                   | Scratchpad/diary only. Manually rotate the current page (see Input modes). |
 | `/download`                  | Reserved, not implemented yet.                                       |
 | `/help`                      | Print this command list in the status bar.                           |
 | `/quit`                      | Exit.                                                                 |
@@ -129,9 +154,11 @@ Type at the `>` prompt.
 - **F1** — `/help`. **F2** — `/load` (nothing registered yet? opens the file
   picker, then adds *and loads* whatever you pick in one step). **F3** —
   `/unload`. **F4** — `/add` (opens the file picker; doesn't auto-load).
-  **F5** — `/remove`. Each acts immediately when there's exactly one
-  model to act on; otherwise it falls back to the same "usage" hint typing
-  the command would give you (tab-completes from there).
+  **F5** — `/remove`. **F6** — `/list`. **F7** — `/new_page` (scratchpad/
+  diary only; hidden from the legend in command and project mode, where it
+  doesn't apply). Each acts immediately when there's exactly one model to
+  act on; otherwise it falls back to the same "usage" hint typing the
+  command would give you (tab-completes from there).
 - **Ctrl+Space** — start/stop mic recording; on stop, transcribes and drops the
   result into the command line for you to review/edit before pressing Enter.
 - **Left/Right** — move the cursor; **Backspace** deletes before it.
@@ -142,6 +169,8 @@ Type at the `>` prompt.
   back through older exchanges doesn't get interrupted by new ones arriving
   — auto-follow only resumes once you've scrolled back to the bottom.
 - **Alt+Left/Alt+Right** — diary mode only: browse archived pages read-only.
+  **Enter** on an empty line while browsing asks to reopen that page as the
+  live one (see Input modes).
 - **Esc** — back to the dashboard from any other view.
 - **Ctrl+C** — quit (same as F10 or `/quit`).
 
@@ -161,10 +190,33 @@ line. Each panel auto-follows its own latest exchange (unless you've
 scrolled back with PageUp — see Keys); the column disappears on narrow
 terminals rather than squeezing everything else.
 
-Basic markdown gets cleaned up rather than shown as literal syntax: `#`/`##`
-headings render bold in accent color with the `#`s stripped, and `**bold**`/
-`` `code` `` delimiters are stripped with the inner text kept plain. This is
-not a real markdown renderer — no nested styling, no italics, and
-underscore emphasis (`__bold__`) is deliberately left alone rather than
-risking corrupting `snake_case` names or `__dunder__` methods, which a
-naive "strip all underscore pairs" pass does in practice.
+The model's reply is shown verbatim, raw markdown syntax and all — an
+earlier pass stripped `**`/`##`/etc., but it visibly mangled real replies
+(cutting text, corrupting `snake_case`/`__dunder__` names), so this is
+deliberately plain passthrough now rather than a half-working renderer.
+
+## Dev tools: `--sweep-summarize`
+
+A separate CLI mode on the same binary, for iterating on diary's
+consolidation instructions without touching production data or the live
+pipeline:
+
+```
+fbdb.exe --sweep-summarize --source=<page:N|ltm|all|test:N|test:all|file:PATH>
+         [--models=<name1,name2,...>|all] [--load-timeout=<seconds>]
+         [--experimental] [--out=DIR] [--no-open]
+```
+
+Loads each named model in turn (reused across every source before being
+unloaded, not reloaded per source), sends it the instruction the live
+pipeline actually uses, and writes a local HTML report — one tab per model,
+original text next to that model's summary, opened in the default browser
+when done. `--source=test:N`/`test:all` runs a handful of fixed synthetic
+scenarios (`FB_SWEEP_TEST_SCENARIOS` in `sweep.c`) built to catch specific
+failure modes (e.g. treating an assistant's unconfirmed guess as fact) with
+a known-correct answer, independent of whatever's actually in your diary
+data. `--experimental` swaps in an alternate instruction pair under active
+development, never wired into the live pipeline — see `sweep.c` for what's
+currently different and why. `--load-timeout` (default 180s) matters for
+large models that need heavy CPU/mmap offload on a small GPU; a timeout is
+reported distinctly from an actual crash.
