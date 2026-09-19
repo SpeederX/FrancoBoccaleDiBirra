@@ -31,28 +31,30 @@ static int count_non_brain_backends(const FbBackendMgr *mgr, const char **out_so
     return count;
 }
 
-/* /add's optional trailing backend argument. Returns 1 and fills out_kind
-   on a recognized name (including empty -- the default, llama.cpp);
-   returns 0 for a non-empty-but-unrecognized name, which the caller
-   should report rather than silently guessing. */
+/* /add's optional trailing backend argument. Returns 1 for "add for every
+   compatible backend" (empty, or literally "all" -- the default: see
+   compatible_kinds_for_path for what "compatible" means), 0 for one
+   specific named kind (filled into *out_kind), -1 for an unrecognized
+   name the caller should report rather than silently guess past. */
 static int parse_backend_kind_arg(const char *s, FbBackendKind *out_kind) {
-    if (s[0] == '\0' || strcmp(s, "llama") == 0 || strcmp(s, "llama_cpp") == 0) {
+    if (s[0] == '\0' || strcmp(s, "all") == 0) return 1;
+    if (strcmp(s, "llama") == 0 || strcmp(s, "llama_cpp") == 0) {
         *out_kind = FB_BACKEND_LLAMA_CPP;
-        return 1;
+        return 0;
     }
     if (strcmp(s, "siliang") == 0) {
         *out_kind = FB_BACKEND_SILIANG;
-        return 1;
+        return 0;
     }
     if (strcmp(s, "vllm") == 0) {
         *out_kind = FB_BACKEND_VLLM;
-        return 1;
+        return 0;
     }
     if (strcmp(s, "sglang") == 0) {
         *out_kind = FB_BACKEND_SGLANG;
-        return 1;
+        return 0;
     }
-    return 0;
+    return -1;
 }
 
 /* Only llama.cpp and Siliang (its fork) consume a single .gguf file --
@@ -71,6 +73,45 @@ static const char *backend_kind_label(FbBackendKind kind) {
     case FB_BACKEND_LLAMA_CPP:
     default: return "llama_cpp";
     }
+}
+
+/* Which kinds are plausible for a /add path when the user didn't name one
+   specifically ("all", or the argument omitted entirely -- the default).
+   llama.cpp and Siliang both consume a single .gguf file; vLLM and SGLang
+   both consume a local HF-format directory or a bare Hugging Face repo
+   id -- the two groups' inputs are not interchangeable in general, so
+   "all" means "every kind compatible with what this path actually looks
+   like", not literally all four unconditionally (a .gguf file registered
+   as a vLLM/SGLang binding would just never load with either). Returns
+   the count (2, always, for now -- always exactly one of the two groups). */
+static int compatible_kinds_for_path(const char *path, FbBackendKind *out_kinds) {
+    if (!fb_path_is_dir(path)) {
+        FILE *f = fopen(path, "rb");
+        if (f) {
+            fclose(f);
+            out_kinds[0] = FB_BACKEND_LLAMA_CPP;
+            out_kinds[1] = FB_BACKEND_SILIANG;
+            return 2;
+        }
+    }
+    out_kinds[0] = FB_BACKEND_VLLM;
+    out_kinds[1] = FB_BACKEND_SGLANG;
+    return 2;
+}
+
+/* Splits a free-form "extra args" string (whitespace-separated, no quote
+   support -- a flag value containing a space isn't representable) into a
+   NULL-terminated argv-style array of pointers *into* buf, which this
+   mutates in place (strtok-style). Returns the token count. */
+static int tokenize_extra_args(char *buf, const char **out_argv, int max_argv) {
+    int argc = 0;
+    char *tok = strtok(buf, " \t");
+    while (tok && argc < max_argv - 1) {
+        out_argv[argc++] = tok;
+        tok = strtok(NULL, " \t");
+    }
+    out_argv[argc] = NULL;
+    return argc;
 }
 
 static const char *skip_ws(const char *s) {
@@ -132,15 +173,24 @@ FbCommand fb_command_parse(const char *line) {
         const char *path_part = skip_ws(rest + name_len);
         size_t path_len = token_len(path_part);
         copy_trimmed(cmd.arg2, sizeof(cmd.arg2), path_part, path_len);
-        /* Optional trailing backend kind: "/add name path vllm". A path
-           with spaces (Windows-common) would break this, but so would the
-           name/path split above -- unquoted-multi-word paths aren't
-           supported by this parser at all, not a new limitation. */
+        /* Optional trailing backend kind, then optional extra CLI flags
+           for the rest of the line: "/add name path vllm --port-offset 1"
+           A path with spaces (Windows-common) would break this, but so
+           would the name/path split above -- unquoted-multi-word paths
+           aren't supported by this parser at all, not a new limitation. */
         const char *kind_part = skip_ws(path_part + path_len);
-        copy_trimmed(cmd.arg3, sizeof(cmd.arg3), kind_part, strlen(kind_part));
-    } else if (cmd.kind == FB_CMD_LOAD || cmd.kind == FB_CMD_UNLOAD ||
-               cmd.kind == FB_CMD_REMOVE || cmd.kind == FB_CMD_LANG ||
-               cmd.kind == FB_CMD_DOWNLOAD) {
+        size_t kind_len = token_len(kind_part);
+        copy_trimmed(cmd.arg3, sizeof(cmd.arg3), kind_part, kind_len);
+        const char *extra_part = skip_ws(kind_part + kind_len);
+        copy_trimmed(cmd.arg4, sizeof(cmd.arg4), extra_part, strlen(extra_part));
+    } else if (cmd.kind == FB_CMD_LOAD || cmd.kind == FB_CMD_REMOVE) {
+        size_t name_len = token_len(rest);
+        copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, name_len);
+        /* Optional backend kind, to disambiguate a model registered under
+           more than one (see FbConfigModel's multi-binding shape). */
+        const char *kind_part = skip_ws(rest + name_len);
+        copy_trimmed(cmd.arg2, sizeof(cmd.arg2), kind_part, strlen(kind_part));
+    } else if (cmd.kind == FB_CMD_UNLOAD || cmd.kind == FB_CMD_LANG || cmd.kind == FB_CMD_DOWNLOAD) {
         size_t arg_len = (cmd.kind == FB_CMD_DOWNLOAD) ? strlen(rest) : token_len(rest);
         copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, arg_len);
     }
@@ -165,7 +215,7 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
     case FB_CMD_LOAD: {
         const char *name = cmd->arg1;
         if (name[0] == '\0') {
-            if (app->config.model_count == 1) {
+            if (app->config.model_count == 1 && app->config.models[0].binding_count == 1) {
                 name = app->config.models[0].name;
             } else {
                 set_status(app, app->config.model_count == 0
@@ -174,29 +224,61 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
                 return;
             }
         }
-        char path[FB_BACKEND_PATH_MAX];
-        FbBackendKind kind = FB_BACKEND_LLAMA_CPP;
-        if (!fb_config_find_model(&app->config, name, path, sizeof(path), &kind)) {
+        FbConfigModel *m = fb_config_find_model(&app->config, name);
+        if (!m) {
             set_status_fmt(app, "unknown model '%s' (use /add <path> first)", name);
             return;
         }
-        if (backend_kind_wants_gguf_file(kind)) {
-            if (fb_path_is_dir(path)) {
-                set_status_fmt(app, "'%s' is registered as a directory, not a .gguf file -- "
-                                     "/remove %s then /add it again via the file picker",
-                               path, name);
+
+        FbModelBinding *b;
+        if (cmd->arg2[0] != '\0') {
+            FbBackendKind requested;
+            if (parse_backend_kind_arg(cmd->arg2, &requested) != 0) {
+                set_status_fmt(app,
+                               "unknown backend '%s' (expected llama, siliang, vllm, or sglang)",
+                               cmd->arg2);
                 return;
             }
-            FILE *probe = fopen(path, "rb");
+            b = fb_config_find_binding(m, requested);
+            if (!b) {
+                set_status_fmt(app, "'%s' isn't registered for %s", name,
+                               backend_kind_label(requested));
+                return;
+            }
+        } else if (m->binding_count == 1) {
+            b = &m->bindings[0];
+        } else {
+            char list[128];
+            size_t off = 0;
+            for (int i = 0; i < m->binding_count && off < sizeof(list) - 1; ++i) {
+                int n = snprintf(list + off, sizeof(list) - off, "%s%s", i > 0 ? ", " : "",
+                                  backend_kind_label(m->bindings[i].kind));
+                if (n > 0) off += (size_t)n;
+            }
+            set_status_fmt(app,
+                           "'%s' is registered for multiple backends (%s) -- specify which: "
+                           "/load %s <backend>",
+                           name, list, name);
+            return;
+        }
+
+        if (backend_kind_wants_gguf_file(b->kind)) {
+            if (fb_path_is_dir(b->path)) {
+                set_status_fmt(app, "'%s' is registered as a directory, not a .gguf file -- "
+                                     "/remove %s then /add it again via the file picker",
+                               b->path, name);
+                return;
+            }
+            FILE *probe = fopen(b->path, "rb");
             if (!probe) {
-                set_status_fmt(app, "can't read '%s' for '%s' (moved or deleted?)", path, name);
+                set_status_fmt(app, "can't read '%s' for '%s' (moved or deleted?)", b->path, name);
                 return;
             }
             fclose(probe);
         }
 
         char backend_exe[FB_BACKEND_PATH_MAX];
-        switch (kind) {
+        switch (b->kind) {
         case FB_BACKEND_SILIANG: fb_resolve_siliang_exe(&app->config, backend_exe, sizeof(backend_exe)); break;
         case FB_BACKEND_VLLM: fb_resolve_vllm_exe(&app->config, backend_exe, sizeof(backend_exe)); break;
         case FB_BACKEND_SGLANG: fb_resolve_sglang_python(&app->config, backend_exe, sizeof(backend_exe)); break;
@@ -204,16 +286,21 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         default: snprintf(backend_exe, sizeof(backend_exe), "%s", app->llama_server_path); break;
         }
 
-        if (fb_backend_mgr_load(&app->backend_mgr, name, path, kind, backend_exe, app->data_dir, 0,
-                                 NULL) != 0) {
+        char extra_buf[256];
+        snprintf(extra_buf, sizeof(extra_buf), "%s", b->extra_args);
+        const char *extra_argv[32];
+        tokenize_extra_args(extra_buf, extra_argv, 32);
+
+        if (fb_backend_mgr_load(&app->backend_mgr, name, b->path, b->kind, backend_exe,
+                                 app->data_dir, 0, extra_argv[0] ? extra_argv : NULL) != 0) {
             set_status_fmt(app, "failed to start '%s' (already loaded, registry full, or '%s' "
                                  "not found)",
                            name, backend_exe);
             return;
         }
-        FbBackendInstance *b = fb_backend_mgr_find(&app->backend_mgr, name);
-        set_status_fmt(app, "loading '%s' (%s) on port %d...", name, backend_kind_label(kind),
-                       b ? b->port : -1);
+        FbBackendInstance *bi = fb_backend_mgr_find(&app->backend_mgr, name);
+        set_status_fmt(app, "loading '%s' (%s) on port %d...", name, backend_kind_label(b->kind),
+                       bi ? bi->port : -1);
         return;
     }
     case FB_CMD_UNLOAD: {
@@ -263,38 +350,60 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
                             "enter to open/select, esc to cancel");
             return;
         }
-        FbBackendKind kind;
-        if (!parse_backend_kind_arg(cmd->arg3, &kind)) {
-            set_status_fmt(app, "unknown backend '%s' (expected llama, siliang, vllm, or sglang)",
+        FbBackendKind kinds[FB_CONFIG_MAX_BINDINGS];
+        int kind_count;
+        FbBackendKind single_kind;
+        int rc = parse_backend_kind_arg(cmd->arg3, &single_kind);
+        if (rc < 0) {
+            set_status_fmt(app, "unknown backend '%s' (expected llama, siliang, vllm, sglang, or all)",
                            cmd->arg3);
             return;
         }
-        if (backend_kind_wants_gguf_file(kind)) {
-            if (fb_path_is_dir(cmd->arg2)) {
-                set_status_fmt(app,
-                               "'%s' is a directory -- point at the actual .gguf file inside it "
-                               "(or just /add with no path to browse)",
-                               cmd->arg2);
-                return;
-            }
-            FILE *probe = fopen(cmd->arg2, "rb");
-            if (!probe) {
-                set_status_fmt(app, "can't read '%s' (check the path)", cmd->arg2);
-                return;
-            }
-            fclose(probe);
+        if (rc == 1) {
+            /* Empty, or literally "all": the default -- register every
+               kind compatible with what this path actually looks like
+               (see compatible_kinds_for_path), not literally all four. */
+            kind_count = compatible_kinds_for_path(cmd->arg2, kinds);
+        } else {
+            kinds[0] = single_kind;
+            kind_count = 1;
         }
-        /* vLLM/SGLang: cmd->arg2 may be a local directory (checked to
-           exist, since that's cheap and catches typos) or a bare Hugging
-           Face repo id (e.g. "meta-llama/Llama-3-8B"), which has nothing
-           to check locally at all -- neither engine's own resolution is
-           duplicated here, so a bad repo id only surfaces when the
-           spawned process itself fails, same as any other unreachable
-           model. */
-        fb_config_add_model(&app->config, cmd->arg1, cmd->arg2, kind);
+
+        for (int i = 0; i < kind_count; ++i) {
+            if (backend_kind_wants_gguf_file(kinds[i])) {
+                if (fb_path_is_dir(cmd->arg2)) {
+                    set_status_fmt(app,
+                                   "'%s' is a directory -- point at the actual .gguf file inside "
+                                   "it (or just /add with no path to browse)",
+                                   cmd->arg2);
+                    return;
+                }
+                FILE *probe = fopen(cmd->arg2, "rb");
+                if (!probe) {
+                    set_status_fmt(app, "can't read '%s' (check the path)", cmd->arg2);
+                    return;
+                }
+                fclose(probe);
+            }
+            /* vLLM/SGLang: cmd->arg2 may be a local directory (checked to
+               exist, since that's cheap and catches typos) or a bare
+               Hugging Face repo id (e.g. "meta-llama/Llama-3-8B"), which
+               has nothing to check locally at all -- neither engine's own
+               resolution is duplicated here, so a bad repo id only
+               surfaces when the spawned process itself fails, same as
+               any other unreachable model. */
+            fb_config_add_binding(&app->config, cmd->arg1, kinds[i], cmd->arg2, cmd->arg4);
+        }
         fb_config_save(&app->config, app->data_dir);
-        set_status_fmt(app, "added '%s' (%s) -> %s", cmd->arg1, backend_kind_label(kind),
-                       cmd->arg2);
+
+        char kind_list[128];
+        size_t off = 0;
+        for (int i = 0; i < kind_count && off < sizeof(kind_list) - 1; ++i) {
+            int n = snprintf(kind_list + off, sizeof(kind_list) - off, "%s%s", i > 0 ? ", " : "",
+                              backend_kind_label(kinds[i]));
+            if (n > 0) off += (size_t)n;
+        }
+        set_status_fmt(app, "added '%s' (%s) -> %s", cmd->arg1, kind_list, cmd->arg2);
         return;
     }
     case FB_CMD_REMOVE: {
@@ -313,13 +422,28 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
                                  : "usage: /remove <model> (multiple registered -- tab-completes)");
             return;
         }
+
+        FbBackendKind kind;
+        const FbBackendKind *kind_ptr = NULL;
+        if (cmd->arg2[0] != '\0') {
+            if (parse_backend_kind_arg(cmd->arg2, &kind) != 0) {
+                set_status_fmt(app,
+                               "unknown backend '%s' (expected llama, siliang, vllm, or sglang)",
+                               cmd->arg2);
+                return;
+            }
+            kind_ptr = &kind;
+        }
+
         fb_backend_mgr_unload(&app->backend_mgr, name); /* no-op if not loaded */
-        if (fb_config_remove_model(&app->config, name) != 0) {
-            set_status_fmt(app, "'%s' is not registered", name);
+        if (fb_config_remove_model(&app->config, name, kind_ptr) != 0) {
+            set_status_fmt(app, kind_ptr ? "'%s' isn't registered for %s" : "'%s' is not registered",
+                           name, kind_ptr ? backend_kind_label(*kind_ptr) : "");
             return;
         }
         fb_config_save(&app->config, app->data_dir);
-        set_status_fmt(app, "removed '%s'", name);
+        set_status_fmt(app, kind_ptr ? "removed '%s' (%s)" : "removed '%s'", name,
+                       kind_ptr ? backend_kind_label(*kind_ptr) : "");
         return;
     }
     case FB_CMD_LANG:
@@ -347,10 +471,16 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         char line[FB_CMDLINE_MAX];
         size_t off = 0;
         for (int i = 0; i < app->config.model_count && off < sizeof(line) - 1; ++i) {
-            FbBackendInstance *b = fb_backend_mgr_find(&app->backend_mgr, app->config.models[i].name);
-            int n = snprintf(line + off, sizeof(line) - off, "%s%s(%s)%s", i > 0 ? "  " : "",
-                              app->config.models[i].name,
-                              backend_kind_label(app->config.models[i].kind), b ? " [loaded]" : "");
+            const FbConfigModel *m = &app->config.models[i];
+            FbBackendInstance *b = fb_backend_mgr_find(&app->backend_mgr, m->name);
+            int n = snprintf(line + off, sizeof(line) - off, "%s%s(", i > 0 ? "  " : "", m->name);
+            if (n > 0) off += (size_t)n;
+            for (int j = 0; j < m->binding_count && off < sizeof(line) - 1; ++j) {
+                n = snprintf(line + off, sizeof(line) - off, "%s%s", j > 0 ? "," : "",
+                              backend_kind_label(m->bindings[j].kind));
+                if (n > 0) off += (size_t)n;
+            }
+            n = snprintf(line + off, sizeof(line) - off, ")%s", b ? " [loaded]" : "");
             if (n > 0) off += (size_t)n;
         }
         set_status(app, line);
@@ -406,9 +536,11 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         set_status(app, "back to dashboard");
         return;
     case FB_CMD_HELP:
-        set_status(app, "/load /unload /add <name> <path> [llama|siliang|vllm|sglang] /remove "
-                        "/list /new_page /lang /leaderboard /logs /dashboard /download /help "
-                        "/quit -- ctrl+space toggles mic recording");
+        set_status(app,
+                   "/load <name> [backend] /unload /add <name> <path> [llama|siliang|vllm|sglang|"
+                   "all] [extra args] /remove <name> [backend] /list /new_page /lang "
+                   "/leaderboard /logs /dashboard /download /help /quit -- ctrl+space toggles "
+                   "mic recording");
         return;
     case FB_CMD_QUIT:
         app->running = 0;

@@ -614,17 +614,21 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                 if (app->file_picker_pending_load) {
                     /* F2 with nothing registered yet: add and load in one
                        shot instead of leaving the user to press Enter and
-                       then type /load themselves. */
+                       then type /load themselves. Explicitly llama_cpp,
+                       not the "all compatible kinds" default /add without
+                       a backend arg now gets -- a picked file is always a
+                       single .gguf, which /add's default would register
+                       for both llama_cpp AND siliang, and /load right
+                       below would then refuse to auto-pick between them. */
                     FbCommand add_cmd;
                     memset(&add_cmd, 0, sizeof(add_cmd));
                     add_cmd.kind = FB_CMD_ADD;
                     strncpy(add_cmd.arg1, name, sizeof(add_cmd.arg1) - 1);
                     strncpy(add_cmd.arg2, path, sizeof(add_cmd.arg2) - 1);
+                    strncpy(add_cmd.arg3, "llama", sizeof(add_cmd.arg3) - 1);
                     fb_command_execute(app, &add_cmd);
 
-                    char check_path[FB_BACKEND_PATH_MAX];
-                    if (fb_config_find_model(&app->config, name, check_path, sizeof(check_path),
-                                              NULL)) {
+                    if (fb_config_find_model(&app->config, name)) {
                         FbCommand load_cmd;
                         memset(&load_cmd, 0, sizeof(load_cmd));
                         load_cmd.kind = FB_CMD_LOAD;

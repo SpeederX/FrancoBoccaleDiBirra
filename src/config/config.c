@@ -95,14 +95,43 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         cJSON_ArrayForEach(item, models) {
             if (cfg->model_count >= FB_CONFIG_MAX_MODELS) break;
             cJSON *name = cJSON_GetObjectItemCaseSensitive(item, "name");
-            cJSON *model_path = cJSON_GetObjectItemCaseSensitive(item, "path");
-            if (!cJSON_IsString(name) || !cJSON_IsString(model_path)) continue;
+            if (!cJSON_IsString(name)) continue;
 
             FbConfigModel *m = &cfg->models[cfg->model_count++];
+            memset(m, 0, sizeof(*m));
             strncpy(m->name, name->valuestring, sizeof(m->name) - 1);
-            strncpy(m->path, model_path->valuestring, sizeof(m->path) - 1);
-            cJSON *kind = cJSON_GetObjectItemCaseSensitive(item, "kind");
-            m->kind = backend_kind_from_name(cJSON_IsString(kind) ? kind->valuestring : NULL);
+
+            cJSON *bindings = cJSON_GetObjectItemCaseSensitive(item, "bindings");
+            if (cJSON_IsArray(bindings)) {
+                cJSON *b;
+                cJSON_ArrayForEach(b, bindings) {
+                    if (m->binding_count >= FB_CONFIG_MAX_BINDINGS) break;
+                    cJSON *bpath = cJSON_GetObjectItemCaseSensitive(b, "path");
+                    if (!cJSON_IsString(bpath)) continue;
+
+                    FbModelBinding *bind = &m->bindings[m->binding_count++];
+                    memset(bind, 0, sizeof(*bind));
+                    strncpy(bind->path, bpath->valuestring, sizeof(bind->path) - 1);
+                    cJSON *bkind = cJSON_GetObjectItemCaseSensitive(b, "kind");
+                    bind->kind = backend_kind_from_name(cJSON_IsString(bkind) ? bkind->valuestring : NULL);
+                    cJSON *bextra = cJSON_GetObjectItemCaseSensitive(b, "extra_args");
+                    if (cJSON_IsString(bextra)) {
+                        strncpy(bind->extra_args, bextra->valuestring, sizeof(bind->extra_args) - 1);
+                    }
+                }
+            } else {
+                /* Pre-multi-binding config.json: a flat {"name","path","kind"}
+                   entry. Read back as that one binding, not discarded. */
+                cJSON *model_path = cJSON_GetObjectItemCaseSensitive(item, "path");
+                if (cJSON_IsString(model_path)) {
+                    FbModelBinding *bind = &m->bindings[0];
+                    memset(bind, 0, sizeof(*bind));
+                    strncpy(bind->path, model_path->valuestring, sizeof(bind->path) - 1);
+                    cJSON *kind = cJSON_GetObjectItemCaseSensitive(item, "kind");
+                    bind->kind = backend_kind_from_name(cJSON_IsString(kind) ? kind->valuestring : NULL);
+                    m->binding_count = 1;
+                }
+            }
         }
     }
 
@@ -133,8 +162,15 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     for (int i = 0; i < cfg->model_count; ++i) {
         cJSON *item = cJSON_CreateObject();
         cJSON_AddStringToObject(item, "name", cfg->models[i].name);
-        cJSON_AddStringToObject(item, "path", cfg->models[i].path);
-        cJSON_AddStringToObject(item, "kind", backend_kind_name(cfg->models[i].kind));
+        cJSON *bindings = cJSON_AddArrayToObject(item, "bindings");
+        for (int j = 0; j < cfg->models[i].binding_count; ++j) {
+            const FbModelBinding *b = &cfg->models[i].bindings[j];
+            cJSON *bind_item = cJSON_CreateObject();
+            cJSON_AddStringToObject(bind_item, "kind", backend_kind_name(b->kind));
+            cJSON_AddStringToObject(bind_item, "path", b->path);
+            cJSON_AddStringToObject(bind_item, "extra_args", b->extra_args);
+            cJSON_AddItemToArray(bindings, bind_item);
+        }
         cJSON_AddItemToArray(models, item);
     }
 
@@ -153,38 +189,62 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     return 0;
 }
 
-int fb_config_find_model(const FbConfig *cfg, const char *name, char *out_path, size_t out_cap,
-                          FbBackendKind *out_kind) {
+FbConfigModel *fb_config_find_model(FbConfig *cfg, const char *name) {
     for (int i = 0; i < cfg->model_count; ++i) {
-        if (strcmp(cfg->models[i].name, name) == 0) {
-            snprintf(out_path, out_cap, "%s", cfg->models[i].path);
-            if (out_kind) *out_kind = cfg->models[i].kind;
-            return 1;
-        }
+        if (strcmp(cfg->models[i].name, name) == 0) return &cfg->models[i];
     }
+    return NULL;
+}
+
+FbModelBinding *fb_config_find_binding(FbConfigModel *model, FbBackendKind kind) {
+    if (!model) return NULL;
+    for (int i = 0; i < model->binding_count; ++i) {
+        if (model->bindings[i].kind == kind) return &model->bindings[i];
+    }
+    return NULL;
+}
+
+int fb_config_add_binding(FbConfig *cfg, const char *name, FbBackendKind kind, const char *path,
+                           const char *extra_args) {
+    FbConfigModel *m = fb_config_find_model(cfg, name);
+    if (!m) {
+        if (cfg->model_count >= FB_CONFIG_MAX_MODELS) return -1;
+        m = &cfg->models[cfg->model_count++];
+        memset(m, 0, sizeof(*m));
+        strncpy(m->name, name, sizeof(m->name) - 1);
+    }
+
+    FbModelBinding *b = fb_config_find_binding(m, kind);
+    if (!b) {
+        if (m->binding_count >= FB_CONFIG_MAX_BINDINGS) return -1;
+        b = &m->bindings[m->binding_count++];
+        memset(b, 0, sizeof(*b));
+        b->kind = kind;
+    }
+    strncpy(b->path, path, sizeof(b->path) - 1);
+    b->path[sizeof(b->path) - 1] = '\0';
+    snprintf(b->extra_args, sizeof(b->extra_args), "%s", extra_args ? extra_args : "");
     return 0;
 }
 
-int fb_config_add_model(FbConfig *cfg, const char *name, const char *path, FbBackendKind kind) {
-    for (int i = 0; i < cfg->model_count; ++i) {
-        if (strcmp(cfg->models[i].name, name) == 0) {
-            strncpy(cfg->models[i].path, path, sizeof(cfg->models[i].path) - 1);
-            cfg->models[i].kind = kind;
-            return 0;
-        }
-    }
-    if (cfg->model_count >= FB_CONFIG_MAX_MODELS) return -1;
-
-    FbConfigModel *m = &cfg->models[cfg->model_count++];
-    strncpy(m->name, name, sizeof(m->name) - 1);
-    strncpy(m->path, path, sizeof(m->path) - 1);
-    m->kind = kind;
-    return 0;
-}
-
-int fb_config_remove_model(FbConfig *cfg, const char *name) {
+int fb_config_remove_model(FbConfig *cfg, const char *name, const FbBackendKind *kind_ptr) {
     for (int i = 0; i < cfg->model_count; ++i) {
         if (strcmp(cfg->models[i].name, name) != 0) continue;
+
+        FbConfigModel *m = &cfg->models[i];
+        if (kind_ptr) {
+            int found = 0;
+            for (int j = 0; j < m->binding_count; ++j) {
+                if (m->bindings[j].kind != *kind_ptr) continue;
+                for (int k = j; k < m->binding_count - 1; ++k) m->bindings[k] = m->bindings[k + 1];
+                m->binding_count--;
+                found = 1;
+                break;
+            }
+            if (!found) return -1;
+            if (m->binding_count > 0) return 0; /* other bindings remain -- keep the model entry */
+        }
+
         for (int j = i; j < cfg->model_count - 1; ++j) cfg->models[j] = cfg->models[j + 1];
         cfg->model_count--;
         return 0;
