@@ -63,6 +63,7 @@ add_executable(fbdb
     src/chat/chat_job.c
     src/diary/diary_job.c
     src/diary/diary.c
+    src/project/project.c
     src/util/fileutil.c
     src/util/utf8.c
 )
