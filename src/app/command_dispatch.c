@@ -94,18 +94,30 @@ FbCommand fb_command_parse(const char *line) {
         copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, name_len);
         const char *path_part = skip_ws(rest + name_len);
         copy_trimmed(cmd.arg2, sizeof(cmd.arg2), path_part, strlen(path_part));
+    } else if (cmd.kind == FB_CMD_INGEST) {
+        /* "/ingest <path> [group] [summary]" -- path is a single token (no
+           quoting supported), so unlike RECALL's whole-line query it can't
+           also be the last arg once group/summary follow it. group links
+           this ingest to a related one (e.g. a transcript and its summary
+           are the same meeting); omitted, it's auto-derived from the
+           filename (see knowledge.c's derive_group_from_filename). The
+           literal word "summary" as the third arg marks this ingest as
+           the group's distilled summary rather than raw content. */
+        size_t path_len = token_len(rest);
+        copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, path_len);
+        const char *after_path = skip_ws(rest + path_len);
+        size_t group_len = token_len(after_path);
+        copy_trimmed(cmd.arg2, sizeof(cmd.arg2), after_path, group_len);
+        const char *after_group = skip_ws(after_path + group_len);
+        size_t flag_len = token_len(after_group);
+        copy_trimmed(cmd.arg3, sizeof(cmd.arg3), after_group, flag_len);
     } else if (cmd.kind == FB_CMD_LOAD || cmd.kind == FB_CMD_UNLOAD ||
                cmd.kind == FB_CMD_REMOVE || cmd.kind == FB_CMD_LANG ||
-               cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_INGEST ||
-               cmd.kind == FB_CMD_RECALL) {
-        /* INGEST's path and RECALL's query both take the rest of the line
-           verbatim (a query is very likely to contain spaces; a path
-           technically could too, though Windows paths with spaces would
-           need to be the *only* argument, no quoting supported here). */
-        size_t arg_len = (cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_INGEST ||
-                           cmd.kind == FB_CMD_RECALL)
-                              ? strlen(rest)
-                              : token_len(rest);
+               cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_RECALL) {
+        /* RECALL's query takes the rest of the line verbatim -- a query is
+           very likely to contain spaces. */
+        size_t arg_len =
+            (cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_RECALL) ? strlen(rest) : token_len(rest);
         copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, arg_len);
     }
 
@@ -329,10 +341,11 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
             return;
         }
         if (cmd->arg1[0] == '\0') {
-            set_status(app, "usage: /ingest <path to a text/markdown file>");
+            set_status(app, "usage: /ingest <path> [group] [summary]");
             return;
         }
-        int added = fb_knowledge_ingest_file(&app->knowledge, cmd->arg1);
+        int is_summary = strcmp(cmd->arg3, "summary") == 0;
+        int added = fb_knowledge_ingest_file(&app->knowledge, cmd->arg1, cmd->arg2, is_summary);
         if (added < 0) {
             set_status(app, "no embedding model configured");
         } else if (added == 0) {
@@ -340,8 +353,14 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
                                  "requests failed -- check <data_dir>/logs/%s.log)",
                            cmd->arg1, FB_EMBEDDING_BRAIN_NAME);
         } else {
-            set_status_fmt(app, "ingested '%s': %d chunk%s added (%d total in the store)",
-                           cmd->arg1, added, added == 1 ? "" : "s", app->knowledge.chunk_count);
+            /* Report the group it actually landed in (explicit or
+               auto-derived) so the caller can confirm a transcript and its
+               summary really did link up, e.g. by /ingest-ing the
+               counterpart next with the same group shown here. */
+            const char *group = app->knowledge.chunks[app->knowledge.chunk_count - 1].group;
+            set_status_fmt(app, "ingested '%s' as %s of group '%s': %d chunk%s added (%d total)",
+                           cmd->arg1, is_summary ? "the summary" : "raw content", group, added,
+                           added == 1 ? "" : "s", app->knowledge.chunk_count);
         }
         return;
     }
@@ -363,8 +382,27 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         } else if (n == 0) {
             set_status(app, "nothing in the knowledge store yet -- /ingest a file first");
         } else {
+            /* If the top hit belongs to a group and isn't itself the
+               summary, pull that group's summary in too (see
+               fb_knowledge_find_summary) -- so a matched transcript detail
+               always surfaces its meeting's overall summary alongside it,
+               not just the isolated sentence that happened to score
+               highest. */
+            FbKnowledgeMatch summary;
+            int has_summary = 0;
+            if (!matches[0].is_summary) {
+                has_summary = fb_knowledge_find_summary(&app->knowledge, matches[0].group, &summary);
+            }
+
             char line[FB_CMDLINE_MAX];
             size_t off = 0;
+            if (has_summary) {
+                char excerpt[80];
+                snprintf(excerpt, sizeof(excerpt), "%s", summary.text);
+                int k = snprintf(line + off, sizeof(line) - off, "[summary of '%s'] %s  ",
+                                  summary.group, excerpt);
+                if (k > 0) off += (size_t)k;
+            }
             for (int i = 0; i < n && off < sizeof(line) - 1; ++i) {
                 char excerpt[80];
                 snprintf(excerpt, sizeof(excerpt), "%s", matches[i].text);

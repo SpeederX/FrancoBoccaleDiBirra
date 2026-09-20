@@ -48,6 +48,14 @@ void fb_knowledge_init(FbKnowledge *k, const char *data_dir, int embed_port) {
                     memset(c, 0, sizeof(*c));
                     snprintf(c->source, sizeof(c->source), "%s", source->valuestring);
                     snprintf(c->text, sizeof(c->text), "%s", chunk_text->valuestring);
+                    /* group/is_summary are optional fields -- absent on
+                       chunks written before this existed, which just
+                       load back as ungrouped (memset above already
+                       zeroed them). */
+                    cJSON *group = cJSON_GetObjectItemCaseSensitive(obj, "group");
+                    if (cJSON_IsString(group)) snprintf(c->group, sizeof(c->group), "%s", group->valuestring);
+                    cJSON *is_summary = cJSON_GetObjectItemCaseSensitive(obj, "is_summary");
+                    if (cJSON_IsBool(is_summary)) c->is_summary = cJSON_IsTrue(is_summary) ? 1 : 0;
                     cJSON *f;
                     cJSON_ArrayForEach(f, embedding) {
                         if (c->dims >= FB_KNOWLEDGE_MAX_DIMS) break;
@@ -67,6 +75,8 @@ static void append_chunk_to_disk(const FbKnowledge *k, const FbKnowledgeChunk *c
     cJSON *obj = cJSON_CreateObject();
     cJSON_AddStringToObject(obj, "source", c->source);
     cJSON_AddStringToObject(obj, "text", c->text);
+    cJSON_AddStringToObject(obj, "group", c->group);
+    cJSON_AddBoolToObject(obj, "is_summary", c->is_summary);
     cJSON *embedding = cJSON_AddArrayToObject(obj, "embedding");
     for (int i = 0; i < c->dims; ++i) {
         cJSON_AddItemToArray(embedding, cJSON_CreateNumber(c->embedding[i]));
@@ -135,7 +145,34 @@ static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX
     return count;
 }
 
-int fb_knowledge_ingest_file(FbKnowledge *k, const char *path) {
+/* Derives a default group id from a bare filename (no directory) by
+   stripping the extension and one trailing "-transcript"/"-summary"/
+   "-notes" (or "_"-separated) tag, so "acme-2026-09-19-transcript.txt"
+   and "acme-2026-09-19-summary.txt" land in the same group with zero
+   caller effort. Falls back to the whole filename (minus extension) if
+   no known tag is present -- still a stable, reproducible group of one
+   until a matching counterpart is ingested. */
+static void derive_group_from_filename(const char *filename, char *out, size_t out_cap) {
+    char base[FB_KNOWLEDGE_SOURCE_MAX];
+    snprintf(base, sizeof(base), "%s", filename);
+
+    char *dot = strrchr(base, '.');
+    if (dot && dot != base) *dot = '\0';
+
+    static const char *tags[] = {"-transcript", "_transcript", "-summary", "_summary",
+                                  "-notes",      "_notes"};
+    size_t base_len = strlen(base);
+    for (size_t i = 0; i < sizeof(tags) / sizeof(tags[0]); ++i) {
+        size_t tag_len = strlen(tags[i]);
+        if (base_len > tag_len && strcmp(base + base_len - tag_len, tags[i]) == 0) {
+            base[base_len - tag_len] = '\0';
+            break;
+        }
+    }
+    snprintf(out, out_cap, "%s", base);
+}
+
+int fb_knowledge_ingest_file(FbKnowledge *k, const char *path, const char *group, int is_summary) {
     if (k->embed_port == 0) return -1;
 
     size_t len = 0;
@@ -162,6 +199,13 @@ int fb_knowledge_ingest_file(FbKnowledge *k, const char *path) {
     const char *sep = (slash && bslash) ? (slash > bslash ? slash : bslash) : (slash ? slash : bslash);
     if (sep) source = sep + 1;
 
+    char resolved_group[FB_KNOWLEDGE_SOURCE_MAX];
+    if (group && group[0] != '\0') {
+        snprintf(resolved_group, sizeof(resolved_group), "%s", group);
+    } else {
+        derive_group_from_filename(source, resolved_group, sizeof(resolved_group));
+    }
+
     int added = 0;
     for (int base = 0; base < chunk_count; base += FB_EMBED_MAX_BATCH) {
         int batch_n = chunk_count - base;
@@ -179,6 +223,8 @@ int fb_knowledge_ingest_file(FbKnowledge *k, const char *path) {
             memset(c, 0, sizeof(*c));
             snprintf(c->source, sizeof(c->source), "%s", source);
             snprintf(c->text, sizeof(c->text), "%s", chunks[base + i]);
+            snprintf(c->group, sizeof(c->group), "%s", resolved_group);
+            c->is_summary = is_summary ? 1 : 0;
             c->dims = vectors[i].dims;
             memcpy(c->embedding, vectors[i].values, sizeof(float) * (size_t)vectors[i].dims);
 
@@ -235,8 +281,26 @@ int fb_knowledge_search(FbKnowledge *k, const char *query, FbKnowledgeMatch *out
                  k->chunks[i].source);
         snprintf(out_matches[insert_at].text, sizeof(out_matches[insert_at].text), "%s",
                  k->chunks[i].text);
+        snprintf(out_matches[insert_at].group, sizeof(out_matches[insert_at].group), "%s",
+                 k->chunks[i].group);
+        out_matches[insert_at].is_summary = k->chunks[i].is_summary;
         out_matches[insert_at].score = score;
         if (found < max_results) found++;
     }
     return found;
+}
+
+int fb_knowledge_find_summary(FbKnowledge *k, const char *group, FbKnowledgeMatch *out) {
+    if (!group || group[0] == '\0') return 0;
+    for (int i = 0; i < k->chunk_count; ++i) {
+        FbKnowledgeChunk *c = &k->chunks[i];
+        if (!c->is_summary || strcmp(c->group, group) != 0) continue;
+        snprintf(out->source, sizeof(out->source), "%s", c->source);
+        snprintf(out->text, sizeof(out->text), "%s", c->text);
+        snprintf(out->group, sizeof(out->group), "%s", c->group);
+        out->is_summary = 1;
+        out->score = 1.0f; /* not a similarity result -- pulled in by group, not scored */
+        return 1;
+    }
+    return 0;
 }

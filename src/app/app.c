@@ -252,8 +252,42 @@ static const char *inject_knowledge_context(FbApp *app, const char *query, const
     char notes[FB_CHAT_TURN_MAX / 2];
     size_t notes_off = 0;
     int used = 0;
+    /* Groups whose summary has already been included this call, so a
+       group with two matching detail chunks doesn't get its summary
+       injected twice. */
+    char seen_summary_groups[3][FB_KNOWLEDGE_SOURCE_MAX];
+    int seen_count = 0;
     for (int i = 0; i < n; ++i) {
         if (matches[i].score < min_score) continue;
+
+        /* A matched raw/transcript chunk is one detail out of a whole
+           meeting -- also surface that meeting's own summary alongside
+           it (see fb_knowledge_find_summary) so the model gets both the
+           specific fact and the surrounding context, not an isolated
+           sentence with no frame of reference. */
+        if (!matches[i].is_summary && matches[i].group[0] != '\0') {
+            int already = 0;
+            for (int s = 0; s < seen_count; ++s) {
+                if (strcmp(seen_summary_groups[s], matches[i].group) == 0) already = 1;
+            }
+            if (!already) {
+                FbKnowledgeMatch summary;
+                if (fb_knowledge_find_summary(&app->knowledge, matches[i].group, &summary)) {
+                    int w = snprintf(notes + notes_off, sizeof(notes) - notes_off,
+                                      "%s[%s summary] %s", used > 0 ? "\n" : "", summary.group,
+                                      summary.text);
+                    if (w > 0) notes_off += (size_t)w;
+                    used++;
+                }
+                if (seen_count < 3) {
+                    snprintf(seen_summary_groups[seen_count], FB_KNOWLEDGE_SOURCE_MAX, "%s",
+                             matches[i].group);
+                    seen_count++;
+                }
+            }
+        }
+        if (notes_off >= sizeof(notes) - 1) break;
+
         int w = snprintf(notes + notes_off, sizeof(notes) - notes_off, "%s[%s] %s",
                           used > 0 ? "\n" : "", matches[i].source, matches[i].text);
         if (w > 0) notes_off += (size_t)w;

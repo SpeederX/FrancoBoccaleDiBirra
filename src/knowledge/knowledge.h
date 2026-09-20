@@ -47,6 +47,18 @@ typedef struct {
     char text[FB_KNOWLEDGE_CHUNK_MAX_CHARS];
     float embedding[FB_KNOWLEDGE_MAX_DIMS];
     int dims;
+    /* Links related ingests together -- e.g. a meeting's raw transcript
+       and its summary are two different files but the *same* underlying
+       event, not independent facts. Empty if ungrouped (backward
+       compatible with chunks ingested before this existed). See
+       fb_knowledge_ingest_file's group parameter. */
+    char group[FB_KNOWLEDGE_SOURCE_MAX];
+    /* 1 if this chunk is a distilled summary of `group`, 0 if it's raw
+       source content. At most one summary chunk is expected per group (a
+       summary is usually short enough to be one chunk), but this isn't
+       enforced -- fb_knowledge_find_summary just returns the first
+       match. */
+    int is_summary;
 } FbKnowledgeChunk;
 
 typedef struct {
@@ -71,19 +83,41 @@ void fb_knowledge_init(FbKnowledge *k, const char *data_dir, int embed_port);
    aren't tiny), embeds each in as few batched requests as
    FB_EMBED_MAX_BATCH allows, and appends them to the index (both in
    memory and persisted). Returns the number of chunks added, 0 if the
-   file was empty/unreadable, -1 if no embedding model is configured. */
-int fb_knowledge_ingest_file(FbKnowledge *k, const char *path);
+   file was empty/unreadable, -1 if no embedding model is configured.
+   `group` links this ingest to others about the same underlying thing
+   (e.g. a meeting's transcript and its summary) -- pass NULL/"" to
+   auto-derive one from the filename (stripping a trailing
+   "-transcript"/"-summary"/"-notes" and extension, so
+   "acme-2026-09-19-transcript.txt" and "acme-2026-09-19-summary.txt"
+   land in the same group without the caller doing anything), or pass an
+   explicit id to control it directly. `is_summary` marks every chunk
+   from this ingest as the group's distilled summary rather than raw
+   content -- see fb_knowledge_find_summary. */
+int fb_knowledge_ingest_file(FbKnowledge *k, const char *path, const char *group, int is_summary);
 
 typedef struct {
     char source[FB_KNOWLEDGE_SOURCE_MAX];
     char text[FB_KNOWLEDGE_CHUNK_MAX_CHARS];
     float score; /* cosine similarity, roughly -1..1; higher is more relevant */
+    char group[FB_KNOWLEDGE_SOURCE_MAX]; /* empty if the matched chunk is ungrouped */
+    int is_summary;
 } FbKnowledgeMatch;
 
 /* Embeds `query` and returns the `max_results` highest-cosine-similarity
    chunks, descending by score. Returns the count filled (0 if the index
-   is empty), or -1 if no embedding model is configured. */
+   is empty), or -1 if no embedding model is configured. Pure similarity
+   ranking -- doesn't pull in a matched chunk's group-mates; callers that
+   want "also give me this group's summary" call fb_knowledge_find_summary
+   themselves (see app.c's inject_knowledge_context for the pattern). */
 int fb_knowledge_search(FbKnowledge *k, const char *query, FbKnowledgeMatch *out_matches,
                          int max_results);
+
+/* Looks up the summary chunk for `group` (the first indexed chunk with a
+   matching group and is_summary != 0). Returns 1 and fills *out if found,
+   0 if `group` is empty, unknown, or has no summary chunk. Lets a caller
+   that just matched a raw/transcript chunk also surface the meeting's
+   overall summary alongside the specific detail, so a linked pair reads
+   as one connected thing rather than two unrelated hits. */
+int fb_knowledge_find_summary(FbKnowledge *k, const char *group, FbKnowledgeMatch *out);
 
 #endif /* FB_KNOWLEDGE_H */
