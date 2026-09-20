@@ -13,6 +13,8 @@ typedef enum {
     FB_CMD_DOWNLOAD, /* parsed now, reserved; not implemented until a later phase */
     FB_CMD_LIST,     /* /list or /models: registered models and their loaded state */
     FB_CMD_NEW_PAGE, /* diary mode only: manually close the live page and start a fresh one */
+    FB_CMD_INGEST,   /* /ingest <path>: chunk+embed a file into the knowledge/knowledge.h store */
+    FB_CMD_RECALL,   /* /recall <query>: manual top-K retrieval test against that store */
     FB_CMD_LEADERBOARD,
     FB_CMD_LOGS,
     FB_CMD_DASHBOARD,

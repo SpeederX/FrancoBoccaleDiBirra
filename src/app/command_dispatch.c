@@ -10,20 +10,23 @@
 #include "config/config.h"
 #include "diary/diary.h"
 #include "intent/intent_brain.h"
+#include "knowledge/knowledge.h"
 #include "platform/dirlist.h"
 #include "tui/widget_textview.h"
 #include "util/paths.h"
 
-/* The always-resident Qwen brain lives in backend_mgr right alongside any
-   user-loaded model, so a plain backend_mgr.count == 1 check for "just one
-   [user] model loaded" is wrong whenever the brain is running too --
-   confirmed the hard way: with the brain up, count is 2 even with a single
+/* The always-resident Qwen brain (and now the embedding brain, see
+   knowledge.h) lives in backend_mgr right alongside any user-loaded
+   model, so a plain backend_mgr.count == 1 check for "just one [user]
+   model loaded" is wrong whenever either is running too -- confirmed the
+   hard way for the Qwen brain: with it up, count is 2 even with a single
    real model loaded, so /unload's auto-select silently never fired. This
-   counts (and finds) only the non-brain entries. */
+   counts (and finds) only entries that are neither brain. */
 static int count_non_brain_backends(const FbBackendMgr *mgr, const char **out_sole_name) {
     int count = 0;
     for (int i = 0; i < mgr->count; ++i) {
-        if (strcmp(mgr->items[i].name, FB_QWEN_BRAIN_NAME) != 0) {
+        if (strcmp(mgr->items[i].name, FB_QWEN_BRAIN_NAME) != 0 &&
+            strcmp(mgr->items[i].name, FB_EMBEDDING_BRAIN_NAME) != 0) {
             if (out_sole_name) *out_sole_name = mgr->items[i].name;
             count++;
         }
@@ -74,6 +77,8 @@ FbCommand fb_command_parse(const char *line) {
     else if (strcmp(verb, "download") == 0) cmd.kind = FB_CMD_DOWNLOAD;
     else if (strcmp(verb, "list") == 0 || strcmp(verb, "models") == 0) cmd.kind = FB_CMD_LIST;
     else if (strcmp(verb, "new_page") == 0) cmd.kind = FB_CMD_NEW_PAGE;
+    else if (strcmp(verb, "ingest") == 0) cmd.kind = FB_CMD_INGEST;
+    else if (strcmp(verb, "recall") == 0) cmd.kind = FB_CMD_RECALL;
     else if (strcmp(verb, "leaderboard") == 0) cmd.kind = FB_CMD_LEADERBOARD;
     else if (strcmp(verb, "logs") == 0) cmd.kind = FB_CMD_LOGS;
     else if (strcmp(verb, "dashboard") == 0) cmd.kind = FB_CMD_DASHBOARD;
@@ -91,8 +96,16 @@ FbCommand fb_command_parse(const char *line) {
         copy_trimmed(cmd.arg2, sizeof(cmd.arg2), path_part, strlen(path_part));
     } else if (cmd.kind == FB_CMD_LOAD || cmd.kind == FB_CMD_UNLOAD ||
                cmd.kind == FB_CMD_REMOVE || cmd.kind == FB_CMD_LANG ||
-               cmd.kind == FB_CMD_DOWNLOAD) {
-        size_t arg_len = (cmd.kind == FB_CMD_DOWNLOAD) ? strlen(rest) : token_len(rest);
+               cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_INGEST ||
+               cmd.kind == FB_CMD_RECALL) {
+        /* INGEST's path and RECALL's query both take the rest of the line
+           verbatim (a query is very likely to contain spaces; a path
+           technically could too, though Windows paths with spaces would
+           need to be the *only* argument, no quoting supported here). */
+        size_t arg_len = (cmd.kind == FB_CMD_DOWNLOAD || cmd.kind == FB_CMD_INGEST ||
+                           cmd.kind == FB_CMD_RECALL)
+                              ? strlen(rest)
+                              : token_len(rest);
         copy_trimmed(cmd.arg1, sizeof(cmd.arg1), rest, arg_len);
     }
 
@@ -309,6 +322,60 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         }
         set_status(app, "/new_page only applies to scratchpad/diary mode (Tab to switch)");
         return;
+    case FB_CMD_INGEST: {
+        if (!app->knowledge_available) {
+            set_status(app, "no embedding model configured -- set embedding_model in "
+                            "config.json or FB_EMBEDDING_MODEL");
+            return;
+        }
+        if (cmd->arg1[0] == '\0') {
+            set_status(app, "usage: /ingest <path to a text/markdown file>");
+            return;
+        }
+        int added = fb_knowledge_ingest_file(&app->knowledge, cmd->arg1);
+        if (added < 0) {
+            set_status(app, "no embedding model configured");
+        } else if (added == 0) {
+            set_status_fmt(app, "'%s' produced no chunks (empty, unreadable, or all embed "
+                                 "requests failed -- check <data_dir>/logs/%s.log)",
+                           cmd->arg1, FB_EMBEDDING_BRAIN_NAME);
+        } else {
+            set_status_fmt(app, "ingested '%s': %d chunk%s added (%d total in the store)",
+                           cmd->arg1, added, added == 1 ? "" : "s", app->knowledge.chunk_count);
+        }
+        return;
+    }
+    case FB_CMD_RECALL: {
+        if (!app->knowledge_available) {
+            set_status(app, "no embedding model configured -- set embedding_model in "
+                            "config.json or FB_EMBEDDING_MODEL");
+            return;
+        }
+        if (cmd->arg1[0] == '\0') {
+            set_status(app, "usage: /recall <query>");
+            return;
+        }
+        FbKnowledgeMatch matches[5];
+        int n = fb_knowledge_search(&app->knowledge, cmd->arg1, matches, 5);
+        if (n < 0) {
+            set_status(app, "recall failed (embedding request error -- check "
+                            "<data_dir>/logs/" FB_EMBEDDING_BRAIN_NAME ".log)");
+        } else if (n == 0) {
+            set_status(app, "nothing in the knowledge store yet -- /ingest a file first");
+        } else {
+            char line[FB_CMDLINE_MAX];
+            size_t off = 0;
+            for (int i = 0; i < n && off < sizeof(line) - 1; ++i) {
+                char excerpt[80];
+                snprintf(excerpt, sizeof(excerpt), "%s", matches[i].text);
+                int k = snprintf(line + off, sizeof(line) - off, "%s[%.2f %s] %s", i > 0 ? "  " : "",
+                                  matches[i].score, matches[i].source, excerpt);
+                if (k > 0) off += (size_t)k;
+            }
+            set_status(app, line);
+        }
+        return;
+    }
     case FB_CMD_LEADERBOARD:
         fb_calibr_load_leaderboard(&app->leaderboard_view, app->calibr_root);
         app->view = FB_VIEW_LEADERBOARD;
@@ -325,9 +392,9 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         set_status(app, "back to dashboard");
         return;
     case FB_CMD_HELP:
-        set_status(app, "/load /unload /add <name> <path> /remove /list /new_page /lang "
-                        "/leaderboard /logs /dashboard /download /help /quit -- ctrl+space "
-                        "toggles mic recording");
+        set_status(app, "/load /unload /add <name> <path> /remove /list /new_page /ingest <path> "
+                        "/recall <query> /lang /leaderboard /logs /dashboard /download /help "
+                        "/quit -- ctrl+space toggles mic recording");
         return;
     case FB_CMD_QUIT:
         app->running = 0;
