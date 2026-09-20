@@ -96,13 +96,18 @@ static void append_chunk_to_disk(const FbKnowledge *k, const FbKnowledgeChunk *c
     cJSON_free(line);
 }
 
-/* Paragraph-based chunking: splits on blank lines, then greedily merges
-   consecutive paragraphs up to FB_KNOWLEDGE_CHUNK_MAX_CHARS so chunks
-   stay reasonably dense rather than one-paragraph-each (a lone "Attendees:
-   Alice, Bob" line as its own chunk carries little retrievable meaning on
-   its own). A single paragraph longer than the cap is hard-truncated --
-   good enough for meeting notes/summaries, which are rarely one giant
-   unbroken paragraph. */
+/* Line-based chunking: splits on every newline (not just a blank-line
+   paragraph break), then greedily merges consecutive non-empty lines up
+   to FB_KNOWLEDGE_CHUNK_MAX_CHARS so chunks stay dense rather than
+   one-line-each. A blank line still ends up acting like a paragraph
+   break (it contributes no content, so the next line starts fresh in
+   the current chunk unless the cap is already hit) -- but unlike an
+   earlier, blank-line-only version of this function, a real meeting
+   transcript (one speaker turn per line, CRLF-terminated, no blank
+   lines anywhere in the body -- confirmed against real Granola exports)
+   now actually gets split into multiple chunks instead of being treated
+   as one giant "paragraph" and silently truncated to the first ~1500
+   characters. A single line longer than the cap is hard-truncated. */
 static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX_CHARS],
                        int max_chunks) {
     int count = 0;
@@ -111,19 +116,18 @@ static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX
     out_chunks[0][0] = '\0';
 
     while (text[off] != '\0' && count < max_chunks) {
-        size_t para_start = off;
-        while (text[off] != '\0' && !(text[off] == '\n' && text[off + 1] == '\n')) off++;
-        size_t para_len = off - para_start;
-        while (text[off] == '\n') off++; /* skip the blank-line separator */
+        size_t line_start = off;
+        while (text[off] != '\0' && text[off] != '\n') off++;
+        size_t line_len = off - line_start;
+        if (text[off] == '\n') off++;
 
-        while (para_len > 0 &&
-               (text[para_start + para_len - 1] == '\n' || text[para_start + para_len - 1] == '\r' ||
-                text[para_start + para_len - 1] == ' ')) {
-            para_len--;
+        while (line_len > 0 && (text[line_start + line_len - 1] == '\r' ||
+                                 text[line_start + line_len - 1] == ' ')) {
+            line_len--;
         }
-        if (para_len == 0) continue;
+        if (line_len == 0) continue;
 
-        if (cur_len > 0 && cur_len + 2 + para_len > FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1) {
+        if (cur_len > 0 && cur_len + 1 + line_len > FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1) {
             count++;
             if (count >= max_chunks) break;
             out_chunks[count][0] = '\0';
@@ -131,13 +135,10 @@ static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX
         }
 
         char *dst = out_chunks[count];
-        if (cur_len > 0) {
-            dst[cur_len++] = '\n';
-            dst[cur_len++] = '\n';
-        }
+        if (cur_len > 0) dst[cur_len++] = '\n';
         size_t room = FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1 - cur_len;
-        size_t copy_len = para_len > room ? room : para_len;
-        memcpy(dst + cur_len, text + para_start, copy_len);
+        size_t copy_len = line_len > room ? room : line_len;
+        memcpy(dst + cur_len, text + line_start, copy_len);
         cur_len += copy_len;
         dst[cur_len] = '\0';
     }

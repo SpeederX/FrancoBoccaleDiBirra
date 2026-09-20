@@ -30,7 +30,15 @@
    is (see command_dispatch.c's count_non_brain_backends). */
 #define FB_EMBEDDING_BRAIN_NAME "embedding-brain"
 
-#define FB_KNOWLEDGE_CHUNK_MAX_CHARS 1500
+/* 1500 chars was the original guess; tested against a real meeting
+   transcript it produced a ~536-token chunk against a local
+   embedding-server default n_ubatch of 512, which the server flatly
+   rejects ("input too large to process") -- silently dropping that
+   chunk. Real speech (short words, filler like "uh, well, um") tokenizes
+   less efficiently than clean prose, so this stays well under budget
+   even on dense transcript text (~2-2.5 chars/token worst case still
+   lands under 512 tokens at this cap). */
+#define FB_KNOWLEDGE_CHUNK_MAX_CHARS 1000
 #define FB_KNOWLEDGE_SOURCE_MAX 256
 /* 2048 chunks * ~1500 chars is several MB of raw source text -- hundreds
    of meetings' worth at personal-corpus scale. 1024 dims covers the local
