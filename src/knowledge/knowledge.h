@@ -39,6 +39,14 @@
    even on dense transcript text (~2-2.5 chars/token worst case still
    lands under 512 tokens at this cap). */
 #define FB_KNOWLEDGE_CHUNK_MAX_CHARS 1000
+/* How much of a closed chunk's tail gets carried into the start of the
+   next one (~15% of the cap, the usual RAG rule of thumb). Without this,
+   a sentence or exchange that happens to fall right on a chunk boundary
+   is legible in neither chunk alone; with it, every chunk after the
+   first also comes with a guaranteed floor of real preceding context
+   (not just a lone short line), which is the same mechanism that keeps
+   chunks from ending up too small to be independently retrievable. */
+#define FB_KNOWLEDGE_CHUNK_OVERLAP_CHARS 150
 #define FB_KNOWLEDGE_SOURCE_MAX 256
 /* 2048 chunks * ~1500 chars is several MB of raw source text -- hundreds
    of meetings' worth at personal-corpus scale. 1024 dims covers the local

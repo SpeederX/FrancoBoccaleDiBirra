@@ -96,18 +96,82 @@ static void append_chunk_to_disk(const FbKnowledge *k, const FbKnowledgeChunk *c
     cJSON_free(line);
 }
 
-/* Line-based chunking: splits on every newline (not just a blank-line
-   paragraph break), then greedily merges consecutive non-empty lines up
-   to FB_KNOWLEDGE_CHUNK_MAX_CHARS so chunks stay dense rather than
-   one-line-each. A blank line still ends up acting like a paragraph
-   break (it contributes no content, so the next line starts fresh in
-   the current chunk unless the cap is already hit) -- but unlike an
-   earlier, blank-line-only version of this function, a real meeting
-   transcript (one speaker turn per line, CRLF-terminated, no blank
-   lines anywhere in the body -- confirmed against real Granola exports)
-   now actually gets split into multiple chunks instead of being treated
-   as one giant "paragraph" and silently truncated to the first ~1500
-   characters. A single line longer than the cap is hard-truncated. */
+/* Starts out_chunks[new_index], seeding it with the tail of the chunk
+   that was just closed (out_chunks[new_index - 1], length old_len) so
+   context spanning the boundary isn't lost to either chunk alone.
+   Prefers snapping the seed forward to the next line boundary so it
+   reads as whole lines; if there isn't one within the overlap window
+   (e.g. mid-way through splitting one very long unbroken line -- see
+   append_run), falls back to a plain character-count tail instead of
+   losing the overlap entirely. Returns the new chunk's starting length. */
+static size_t seed_overlap(char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX_CHARS], int new_index, size_t old_len) {
+    const char *prev = out_chunks[new_index - 1];
+    size_t overlap_len =
+        old_len < FB_KNOWLEDGE_CHUNK_OVERLAP_CHARS ? old_len : FB_KNOWLEDGE_CHUNK_OVERLAP_CHARS;
+    size_t raw_start = old_len - overlap_len;
+
+    size_t snapped = raw_start;
+    while (snapped < old_len && prev[snapped] != '\n') snapped++;
+    size_t overlap_start = (snapped < old_len) ? snapped + 1 : raw_start;
+    overlap_len = old_len - overlap_start;
+
+    char *dst = out_chunks[new_index];
+    memcpy(dst, prev + overlap_start, overlap_len);
+    dst[overlap_len] = '\0';
+    return overlap_len;
+}
+
+/* Appends `len` bytes at `s` (one trimmed line) to the chunk currently
+   being built, flushing into a new, overlap-seeded chunk (see
+   seed_overlap) whenever it doesn't fit. A run that would fit whole in
+   a fresh chunk but not in what's left of the current one gets flushed
+   first rather than awkwardly split; a run bigger than an entire empty
+   chunk (one very long unbroken transcript line -- real ones exist,
+   e.g. a multi-minute uninterrupted answer) fills what it can, flushes,
+   and continues with the remainder in further overlap-seeded chunks
+   instead of the excess being silently discarded past the cap. */
+static void append_run(const char *s, size_t len, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX_CHARS],
+                        int max_chunks, int *count, size_t *cur_len) {
+    while (len > 0 && *count < max_chunks) {
+        size_t sep = *cur_len > 0 ? 1 : 0;
+        size_t room = FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1 - *cur_len;
+
+        if (*cur_len > 0 && sep + len > room && len <= FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1) {
+            size_t old_len = *cur_len;
+            (*count)++;
+            if (*count >= max_chunks) return;
+            *cur_len = seed_overlap(out_chunks, *count, old_len);
+            continue;
+        }
+
+        char *dst = out_chunks[*count];
+        if (sep) dst[(*cur_len)++] = '\n';
+        room = FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1 - *cur_len;
+        size_t copy_len = len > room ? room : len;
+        memcpy(dst + *cur_len, s, copy_len);
+        *cur_len += copy_len;
+        dst[*cur_len] = '\0';
+        s += copy_len;
+        len -= copy_len;
+
+        if (len > 0) {
+            size_t old_len = *cur_len;
+            (*count)++;
+            if (*count >= max_chunks) return;
+            *cur_len = seed_overlap(out_chunks, *count, old_len);
+        }
+    }
+}
+
+/* Line-based chunking with overlap: splits on every newline (not just a
+   blank-line paragraph break -- a real meeting transcript, one speaker
+   turn per line, CRLF-terminated, typically has no blank lines anywhere
+   in the body, confirmed against real Granola exports), greedily merges
+   consecutive non-empty lines up to FB_KNOWLEDGE_CHUNK_MAX_CHARS, and
+   carries FB_KNOWLEDGE_CHUNK_OVERLAP_CHARS of context across each
+   boundary (see append_run/seed_overlap) so retrieval of one chunk
+   doesn't lose whatever fact happened to fall right at the edge of the
+   next one. */
 static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX_CHARS],
                        int max_chunks) {
     int count = 0;
@@ -127,20 +191,7 @@ static int chunk_text(const char *text, char out_chunks[][FB_KNOWLEDGE_CHUNK_MAX
         }
         if (line_len == 0) continue;
 
-        if (cur_len > 0 && cur_len + 1 + line_len > FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1) {
-            count++;
-            if (count >= max_chunks) break;
-            out_chunks[count][0] = '\0';
-            cur_len = 0;
-        }
-
-        char *dst = out_chunks[count];
-        if (cur_len > 0) dst[cur_len++] = '\n';
-        size_t room = FB_KNOWLEDGE_CHUNK_MAX_CHARS - 1 - cur_len;
-        size_t copy_len = line_len > room ? room : line_len;
-        memcpy(dst + cur_len, text + line_start, copy_len);
-        cur_len += copy_len;
-        dst[cur_len] = '\0';
+        append_run(text + line_start, line_len, out_chunks, max_chunks, &count, &cur_len);
     }
     if (cur_len > 0) count++;
     return count;
