@@ -70,7 +70,7 @@ void fb_calibr_load_leaderboard(FbTextView *tv, const char *calibr_root) {
     fb_textview_clear(tv);
 
     if (!calibr_root || calibr_root[0] == '\0') {
-        fb_textview_add_line(tv, "calibr not configured -- set FB_CALIBR_ROOT to your calibr checkout");
+        fb_textview_add_line(tv, "calibr not configured -- set calibr_root in config.json to your calibr checkout");
         return;
     }
 

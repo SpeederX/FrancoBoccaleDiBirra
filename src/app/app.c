@@ -858,8 +858,8 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                     snprintf(app->last_submitted, FB_CMDLINE_MAX, "failed to save recording");
                 } else if (!app->transcribe_available) {
                     snprintf(app->last_submitted, FB_CMDLINE_MAX,
-                             "recorded %zu samples -> %s (set FB_ORUKEET_DIR to transcribe)", n,
-                             path);
+                             "recorded %zu samples -> %s (set orukeet_dir in config.json to transcribe)",
+                             n, path);
                 } else if (fb_transcribe_start(&app->transcribe_job, &app->transcribe_cfg, path,
                                                 app->data_dir) == 0) {
                     app->transcribe_confirm_pending = 0;

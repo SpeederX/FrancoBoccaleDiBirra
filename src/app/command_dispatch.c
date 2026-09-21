@@ -145,7 +145,7 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         if (fb_backend_mgr_load(&app->backend_mgr, name, path, app->llama_server_path,
                                  app->data_dir, 0, NULL) != 0) {
             set_status_fmt(app, "failed to start '%s' (already loaded, registry full, or "
-                                 "llama-server not found — check FB_LLAMA_SERVER)",
+                                 "llama-server not found — check llama_server_path in config.json)",
                            name);
             return;
         }
@@ -345,12 +345,12 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         fb_calibr_load_leaderboard(&app->leaderboard_view, app->calibr_root);
         app->view = FB_VIEW_LEADERBOARD;
         set_status(app, app->calibr_root[0] ? "leaderboard -- arrows to scroll, esc to go back"
-                                             : "set FB_CALIBR_ROOT to view calibr results");
+                                             : "set calibr_root in config.json to view calibr results");
         return;
     case FB_CMD_LOGS:
         app->view = FB_VIEW_LOGS;
         set_status(app, app->calibr_root[0] ? "logs -- arrows to scroll, esc to go back"
-                                             : "set FB_CALIBR_ROOT to view calibr logs");
+                                             : "set calibr_root in config.json to view calibr logs");
         return;
     case FB_CMD_DASHBOARD:
         app->view = FB_VIEW_DASHBOARD;

@@ -94,7 +94,7 @@ int main(void) {
     /* Missing calibr root: still produces an explanatory line, never empty/garbage. */
     fb_calibr_load_leaderboard(unconfigured, "");
     assert(unconfigured->count == 1);
-    assert(textview_contains(unconfigured, "FB_CALIBR_ROOT"));
+    assert(textview_contains(unconfigured, "calibr_root"));
 
     /* --- log tail: incremental polling, no duplicate re-reads --- */
     char log_path[700];
