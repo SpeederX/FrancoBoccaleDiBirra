@@ -1,8 +1,8 @@
 # FrancoBoccaleDiBirra
 
 A minimal terminal console for managing local LLM backends (llama.cpp today,
-vLLM/SGLang planned), with mic transcription and a small structured-output
-"intent brain" for natural-language commands.
+vLLM/SGLang planned), with mic transcription, direct-URL GGUF downloads, and
+a small structured-output "intent brain" for natural-language commands.
 
 ## Quickstart
 
