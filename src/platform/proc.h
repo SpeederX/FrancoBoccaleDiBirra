@@ -30,6 +30,11 @@ void fb_proc_stop(FbProcess *proc);
 /* Non-blocking. Returns 1 if the process has exited, 0 if still running. */
 int fb_proc_has_exited(FbProcess *proc);
 
+/* Non-blocking exit-status query. Returns 1 and fills out_exit_code once
+   the process has exited, 0 while it is running, or -1 if the platform
+   could not query/reap it. */
+int fb_proc_exit_code(FbProcess *proc, int *out_exit_code);
+
 long fb_proc_pid(const FbProcess *proc);
 
 /* Releases bookkeeping handles; does not stop the process. */

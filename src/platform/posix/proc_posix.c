@@ -14,6 +14,8 @@ extern char **environ;
 
 struct FbProcess {
     pid_t pid;
+    int exited;
+    int exit_code;
 };
 
 FbProcess *fb_proc_spawn(const char *const *argv, const char *stdout_path,
@@ -61,6 +63,8 @@ FbProcess *fb_proc_spawn(const char *const *argv, const char *stdout_path,
         return NULL;
     }
     proc->pid = pid;
+    proc->exited = 0;
+    proc->exit_code = 0;
     return proc;
 }
 
@@ -69,11 +73,23 @@ void fb_proc_stop(FbProcess *proc) {
     killpg(proc->pid, SIGTERM);
 }
 
+int fb_proc_exit_code(FbProcess *proc, int *out_exit_code) {
+    if (!proc) return -1;
+    if (!proc->exited) {
+        int status = 0;
+        pid_t r = waitpid(proc->pid, &status, WNOHANG);
+        if (r == 0) return 0;
+        if (r < 0) return -1;
+        proc->exited = 1;
+        proc->exit_code = WIFEXITED(status) ? WEXITSTATUS(status)
+                                            : (WIFSIGNALED(status) ? 128 + WTERMSIG(status) : 1);
+    }
+    if (out_exit_code) *out_exit_code = proc->exit_code;
+    return 1;
+}
+
 int fb_proc_has_exited(FbProcess *proc) {
-    if (!proc) return 1;
-    int status;
-    pid_t r = waitpid(proc->pid, &status, WNOHANG);
-    return r == proc->pid || r < 0;
+    return fb_proc_exit_code(proc, NULL) != 0;
 }
 
 long fb_proc_pid(const FbProcess *proc) {

@@ -257,7 +257,39 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
                        app->config.lang_pref);
         return;
     case FB_CMD_DOWNLOAD:
-        set_status(app, "/download: not implemented yet");
+        if (cmd->arg1[0] == '\0') {
+            set_status(app, "usage: /download <direct .gguf URL> (or /download cancel)");
+            return;
+        }
+        if (strcmp(cmd->arg1, "cancel") == 0) {
+            if (app->download_job.state != FB_DOWNLOAD_RUNNING) {
+                set_status(app, "no download is running");
+                return;
+            }
+            fb_download_job_cancel(&app->download_job);
+            set_status(app, "download cancelled; partial file kept for a later resume");
+            return;
+        }
+        if (app->download_job.state == FB_DOWNLOAD_RUNNING) {
+            set_status_fmt(app, "already downloading '%s' (/download cancel to stop)",
+                           app->download_job.model_name);
+            return;
+        }
+        if (fb_download_job_start(&app->download_job, cmd->arg1, app->data_dir) != 0) {
+            set_status_fmt(app, "download couldn't start: %s", app->download_job.error);
+            fb_download_job_consume(&app->download_job);
+            return;
+        }
+        app->download_last_status_ms = 0;
+        if (app->download_job.state == FB_DOWNLOAD_DONE) {
+            set_status_fmt(app, "found existing '%s'; registering it...",
+                           app->download_job.model_name);
+        } else if (app->download_job.start_bytes > 0) {
+            set_status_fmt(app, "resuming '%s' from %llu bytes...",
+                           app->download_job.model_name, app->download_job.start_bytes);
+        } else {
+            set_status_fmt(app, "downloading '%s'...", app->download_job.model_name);
+        }
         return;
     case FB_CMD_LIST: {
         if (app->config.model_count == 0) {
@@ -326,7 +358,7 @@ void fb_command_execute(FbApp *app, const FbCommand *cmd) {
         return;
     case FB_CMD_HELP:
         set_status(app, "/load /unload /add <name> <path> /remove /list /new_page /lang "
-                        "/leaderboard /logs /dashboard /download /help /quit -- ctrl+space "
+                        "/leaderboard /logs /dashboard /download <gguf-url> /help /quit -- ctrl+space "
                         "toggles mic recording");
         return;
     case FB_CMD_QUIT:

@@ -184,11 +184,17 @@ void fb_proc_stop(FbProcess *proc) {
     TerminateJobObject(proc->job, 0);
 }
 
-int fb_proc_has_exited(FbProcess *proc) {
-    if (!proc) return 1;
+int fb_proc_exit_code(FbProcess *proc, int *out_exit_code) {
+    if (!proc) return -1;
     DWORD code = 0;
-    if (!GetExitCodeProcess(proc->process, &code)) return 1;
-    return code != STILL_ACTIVE;
+    if (!GetExitCodeProcess(proc->process, &code)) return -1;
+    if (code == STILL_ACTIVE) return 0;
+    if (out_exit_code) *out_exit_code = (int)code;
+    return 1;
+}
+
+int fb_proc_has_exited(FbProcess *proc) {
+    return fb_proc_exit_code(proc, NULL) != 0;
 }
 
 long fb_proc_pid(const FbProcess *proc) {

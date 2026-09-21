@@ -145,9 +145,26 @@ Type at the `>` prompt.
 | `/dashboard`                 | Back to the main view from leaderboard/logs.                         |
 | `/list` or `/models`         | Show registered models and which are currently loaded.               |
 | `/new_page`                   | Scratchpad/diary only. Manually rotate the current page (see Input modes). |
-| `/download`                  | Reserved, not implemented yet.                                       |
+| `/download <URL>`            | Download a direct HTTP(S) `.gguf`, then register it automatically.   |
+| `/download cancel`             | Stop the active transfer; its partial file remains resumable.        |
 | `/help`                      | Print this command list in the status bar.                           |
 | `/quit`                      | Exit.                                                                 |
+
+## Model downloads
+
+`/download <URL>` accepts a direct HTTP(S) URL whose path ends in `.gguf`.
+Hugging Face `/blob/` links are converted to their `/resolve/` download form.
+The transfer runs through `curl` in the background, so the console stays
+responsive. Files land under `<data_dir>/models/`; an in-progress transfer
+uses a `.part` suffix and the same command resumes it after interruption.
+On completion the filename becomes the model's registry name (with a numeric
+suffix if that name is already taken), ready for `/load`. `/download cancel`
+stops the process without deleting the resumable partial file. The stderr log
+for the most recent attempt is `<data_dir>/logs/download/last.stderr.log`.
+
+This first version expects `curl` on PATH (`curl.exe` is included with current
+Windows releases). It deliberately starts from an explicit file URL; catalog
+search and gated-model authentication can be layered on later.
 
 ## Keys
 

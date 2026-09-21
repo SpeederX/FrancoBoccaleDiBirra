@@ -38,6 +38,13 @@ int fb_path_is_dir(const char *path) {
     return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
+int fb_file_size(const char *path, unsigned long long *out_size) {
+    struct stat st;
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) return 0;
+    if (out_size) *out_size = (unsigned long long)st.st_size;
+    return 1;
+}
+
 int fb_list_drives(FbDirEntry *out, int max_entries) {
     (void)out;
     (void)max_entries;

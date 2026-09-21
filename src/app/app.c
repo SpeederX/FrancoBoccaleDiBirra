@@ -28,6 +28,7 @@ void fb_app_init(FbApp *app, int width, int height) {
     fb_cmdline_init(&app->cmdline);
     fb_chat_job_init(&app->chat_job);
     fb_chat_job_init(&app->diary_chat_job);
+    fb_download_job_init(&app->download_job);
 
     app->mic_available = (fb_mic_init() == 0);
     if (fb_get_data_dir(app->data_dir, sizeof(app->data_dir)) != 0) {
@@ -359,8 +360,82 @@ static FbTextView *current_panel_view(FbApp *app) {
     return &app->history_view;
 }
 
+
+static void format_download_bytes(unsigned long long bytes, char *out, size_t out_cap) {
+    const double gib = 1024.0 * 1024.0 * 1024.0;
+    const double mib = 1024.0 * 1024.0;
+    if ((double)bytes >= gib) {
+        snprintf(out, out_cap, "%.2f GiB", (double)bytes / gib);
+    } else if ((double)bytes >= mib) {
+        snprintf(out, out_cap, "%.1f MiB", (double)bytes / mib);
+    } else {
+        snprintf(out, out_cap, "%llu KiB", bytes / 1024ULL);
+    }
+}
+
+static const char *register_downloaded_model(FbApp *app) {
+    /* Reuse an existing registration for the exact same path. Otherwise
+       preserve the old name and add a stable numeric suffix. */
+    for (int i = 0; i < app->config.model_count; ++i) {
+        if (strcmp(app->config.models[i].path, app->download_job.final_path) == 0) {
+            snprintf(app->download_job.model_name, sizeof(app->download_job.model_name), "%s",
+                     app->config.models[i].name);
+            return app->download_job.model_name;
+        }
+    }
+
+    char base[sizeof(app->download_job.model_name)];
+    snprintf(base, sizeof(base), "%s", app->download_job.model_name);
+    char candidate[sizeof(app->download_job.model_name)];
+    snprintf(candidate, sizeof(candidate), "%s", base);
+    for (int suffix = 2;; ++suffix) {
+        char ignored[512];
+        if (!fb_config_find_model(&app->config, candidate, ignored, sizeof(ignored))) break;
+        snprintf(candidate, sizeof(candidate), "%.110s-%d", base, suffix);
+    }
+
+    if (fb_config_add_model(&app->config, candidate, app->download_job.final_path) != 0) return NULL;
+    snprintf(app->download_job.model_name, sizeof(app->download_job.model_name), "%s", candidate);
+    return app->download_job.model_name;
+}
+
+static void tick_download(FbApp *app) {
+    fb_download_job_tick(&app->download_job);
+    if (app->download_job.state == FB_DOWNLOAD_RUNNING) {
+        unsigned long long now = fb_now_ms();
+        if (now - app->download_last_status_ms >= 500) {
+            char amount[32];
+            format_download_bytes(fb_download_job_bytes(&app->download_job), amount, sizeof(amount));
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "downloading '%s': %s received (/download cancel to stop)",
+                     app->download_job.model_name, amount);
+            app->download_last_status_ms = now;
+        }
+        return;
+    }
+    if (app->download_job.state == FB_DOWNLOAD_DONE) {
+        const char *name = register_downloaded_model(app);
+        if (!name) {
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "downloaded %s, but the model registry is full", app->download_job.final_path);
+        } else if (fb_config_save(&app->config, app->data_dir) != 0) {
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "downloaded '%s', but couldn't save its registration", name);
+        } else {
+            snprintf(app->last_submitted, FB_CMDLINE_MAX,
+                     "downloaded and registered '%s' -> %s", name, app->download_job.final_path);
+        }
+        fb_download_job_consume(&app->download_job);
+    } else if (app->download_job.state == FB_DOWNLOAD_ERROR) {
+        snprintf(app->last_submitted, FB_CMDLINE_MAX, "download failed: %s",
+                 app->download_job.error);
+        fb_download_job_consume(&app->download_job);
+    }
+}
+
 void fb_app_tick(FbApp *app) {
     fb_backend_mgr_tick(&app->backend_mgr);
+    tick_download(app);
 
     if (app->view == FB_VIEW_LOGS) {
         fb_calibr_log_tail_poll(&app->log_tail, app->calibr_root, &app->log_view);
@@ -430,6 +505,7 @@ void fb_app_tick(FbApp *app) {
 }
 
 void fb_app_shutdown(FbApp *app) {
+    fb_download_job_shutdown(&app->download_job);
     fb_chat_shutdown(&app->chat_job); /* joins any in-flight request before app is freed */
     fb_chat_shutdown(&app->diary_chat_job);
     fb_diary_shutdown(&app->diary);

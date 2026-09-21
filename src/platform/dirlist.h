@@ -30,4 +30,8 @@ int fb_list_drives(FbDirEntry *out, int max_entries);
    that doesn't exist at all). */
 int fb_path_is_dir(const char *path);
 
+/* Returns 1 and fills out_size for an existing regular file, otherwise 0.
+   The 64-bit size is required for multi-gigabyte GGUF downloads. */
+int fb_file_size(const char *path, unsigned long long *out_size);
+
 #endif /* FB_DIRLIST_H */

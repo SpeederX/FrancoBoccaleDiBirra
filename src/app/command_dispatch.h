@@ -10,7 +10,7 @@ typedef enum {
     FB_CMD_ADD,
     FB_CMD_REMOVE,
     FB_CMD_LANG,
-    FB_CMD_DOWNLOAD, /* parsed now, reserved; not implemented until a later phase */
+    FB_CMD_DOWNLOAD, /* direct GGUF URL -> local models directory + registry */
     FB_CMD_LIST,     /* /list or /models: registered models and their loaded state */
     FB_CMD_NEW_PAGE, /* diary mode only: manually close the live page and start a fresh one */
     FB_CMD_LEADERBOARD,
@@ -20,7 +20,7 @@ typedef enum {
     FB_CMD_QUIT
 } FbCommandKind;
 
-#define FB_CMD_ARG_MAX 512
+#define FB_CMD_ARG_MAX 1024
 
 typedef struct {
     FbCommandKind kind;

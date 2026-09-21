@@ -32,6 +32,18 @@ int fb_path_is_dir(const char *path) {
     return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
+int fb_file_size(const char *path, unsigned long long *out_size) {
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &data) ||
+        (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+        return 0;
+    }
+    if (out_size) {
+        *out_size = ((unsigned long long)data.nFileSizeHigh << 32) | data.nFileSizeLow;
+    }
+    return 1;
+}
+
 int fb_list_drives(FbDirEntry *out, int max_entries) {
     char buf[256];
     DWORD n = GetLogicalDriveStringsA(sizeof(buf), buf);

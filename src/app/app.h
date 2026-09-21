@@ -6,6 +6,7 @@
 #include "chat/chat_job.h"
 #include "config/config.h"
 #include "diary/diary.h"
+#include "download/download_job.h"
 #include "transcribe/transcribe.h"
 #include "tui/screen.h"
 #include "tui/widget_cmdline.h"
@@ -51,6 +52,9 @@ typedef struct {
     FbTranscribeConfig transcribe_cfg;
     FbTranscribeJob transcribe_job;
     int transcribe_confirm_pending; /* awaiting a y/N reply after all retry attempts failed */
+
+    FbDownloadJob download_job;
+    unsigned long long download_last_status_ms;
 
     FbAppView view;
     char calibr_root[512]; /* empty if FB_CALIBR_ROOT isn't set */

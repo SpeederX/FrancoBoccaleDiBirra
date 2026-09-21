@@ -39,6 +39,7 @@ add_executable(fbdb
     src/app/app.c
     src/app/command_dispatch.c
     src/app/sweep.c
+    src/download/download_job.c
     src/tui/layout.c
     src/tui/widget_cmdline.c
     src/tui/fx_sphere.c
@@ -90,6 +91,7 @@ if (WIN32)
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server.exe"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline.exe"
+        FB_CURL_DEFAULT_NAME="curl.exe"
     )
 else()
     target_sources(fbdb PRIVATE
@@ -105,6 +107,7 @@ else()
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline"
+        FB_CURL_DEFAULT_NAME="curl"
     )
 endif()
 
