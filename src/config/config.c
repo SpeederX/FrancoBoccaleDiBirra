@@ -157,10 +157,8 @@ int fb_config_remove_model(FbConfig *cfg, const char *name) {
 }
 
 int fb_resolve_llama_server(const FbConfig *cfg, char *out_path, size_t out_cap) {
-    const char *env = getenv("FB_LLAMA_SERVER");
-    const char *src = (env && env[0] != '\0')            ? env
-                       : (cfg->llama_server_path[0] != '\0') ? cfg->llama_server_path
-                                                              : FB_LLAMA_SERVER_DEFAULT_NAME;
+    const char *src =
+        cfg->llama_server_path[0] != '\0' ? cfg->llama_server_path : FB_LLAMA_SERVER_DEFAULT_NAME;
     snprintf(out_path, out_cap, "%s", src);
     return 0;
 }
@@ -245,10 +243,7 @@ int fb_resolve_transcribe_config(const FbConfig *cfg, const char *data_dir, FbTr
     char external_dir[512];
     snprintf(external_dir, sizeof(external_dir), "%s/external", data_dir ? data_dir : "");
 
-    const char *sherpa_env = getenv("FB_SHERPA_ONNX_EXE");
-    if (sherpa_env && sherpa_env[0] != '\0') {
-        snprintf(out->sherpa_exe, sizeof(out->sherpa_exe), "%s", sherpa_env);
-    } else if (cfg->sherpa_exe[0] != '\0') {
+    if (cfg->sherpa_exe[0] != '\0') {
         snprintf(out->sherpa_exe, sizeof(out->sherpa_exe), "%s", cfg->sherpa_exe);
     } else if (data_dir && find_file_under(external_dir, FB_SHERPA_ONNX_DEFAULT_NAME, out->sherpa_exe,
                                             sizeof(out->sherpa_exe), 0)) {
@@ -259,10 +254,7 @@ int fb_resolve_transcribe_config(const FbConfig *cfg, const char *data_dir, FbTr
 
     char model_dir[512];
     model_dir[0] = '\0';
-    const char *model_dir_env = getenv("FB_ORUKEET_DIR");
-    if (model_dir_env && model_dir_env[0] != '\0') {
-        snprintf(model_dir, sizeof(model_dir), "%s", model_dir_env);
-    } else if (cfg->orukeet_dir[0] != '\0') {
+    if (cfg->orukeet_dir[0] != '\0') {
         snprintf(model_dir, sizeof(model_dir), "%s", cfg->orukeet_dir);
     } else if (data_dir) {
         find_orukeet_dir_under(external_dir, model_dir, sizeof(model_dir), 0);
@@ -282,19 +274,12 @@ int fb_resolve_transcribe_config(const FbConfig *cfg, const char *data_dir, FbTr
 }
 
 int fb_resolve_qwen_model(const FbConfig *cfg, char *out_path, size_t cap) {
-    const char *env = getenv("FB_QWEN_MODEL");
-    const char *src = (env && env[0] != '\0') ? env : cfg->qwen_model;
-    if (src[0] == '\0' || !file_exists(src)) return -1;
-    int n = snprintf(out_path, cap, "%s", src);
+    if (cfg->qwen_model[0] == '\0' || !file_exists(cfg->qwen_model)) return -1;
+    int n = snprintf(out_path, cap, "%s", cfg->qwen_model);
     return (n < 0 || (size_t)n >= cap) ? -1 : 0;
 }
 
 int fb_resolve_qwen_port(const FbConfig *cfg) {
-    const char *env = getenv("FB_QWEN_PORT");
-    if (env && env[0] != '\0') {
-        int p = atoi(env);
-        if (p > 0 && p < 65536) return p;
-    }
     if (cfg->qwen_port > 0 && cfg->qwen_port < 65536) return cfg->qwen_port;
     return FB_QWEN_DEFAULT_PORT;
 }

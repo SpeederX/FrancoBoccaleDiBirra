@@ -57,7 +57,7 @@ typedef struct {
     unsigned long long download_last_status_ms;
 
     FbAppView view;
-    char calibr_root[512]; /* empty if FB_CALIBR_ROOT isn't set */
+    char calibr_root[512]; /* empty if config.json's calibr_root isn't set */
     FbTextView leaderboard_view;
     FbTextView log_view;
     FbCalibrLogTail log_tail;

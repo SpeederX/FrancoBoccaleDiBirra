@@ -18,27 +18,26 @@ just disables whatever it can't find.
 ### Config file
 
 `<data_dir>/config.json` (`%LOCALAPPDATA%\FrancoBoccaleDiBirra\config.json`
-on Windows) is written on first run and is meant to be hand-edited. Each
-setting below has a matching key there (`llama_server_path`, `sherpa_exe`,
-`orukeet_dir`, `qwen_model`, `qwen_port`, `calibr_root`) — set it once and
-forget it, instead of exporting an env var every session.
+on Windows) is written on first run and is meant to be hand-edited. It's the
+single source of truth for every setting below — no environment variables
+are read for any of it, so there's exactly one place to look, not two.
 
 ### Resolution order
 
-For each setting: its env var (if set) wins, then its config.json field,
-then an auto-detected default where one is safe:
+For each setting: its config.json field, then an auto-detected default
+where one is safe:
 
-| Setting            | Env var              | Auto-detected default                                  |
+| Setting            | config.json key      | Auto-detected default                                  |
 |---------------------|-----------------------|----------------------------------------------------------|
-| llama-server binary | `FB_LLAMA_SERVER`     | `llama-server.exe` on PATH                               |
-| sherpa-onnx binary   | `FB_SHERPA_ONNX_EXE`  | searched under `<data_dir>/external/`                    |
-| Orukeet model dir    | `FB_ORUKEET_DIR`      | searched under `<data_dir>/external/`                    |
-| Qwen brain model     | `FB_QWEN_MODEL`       | none — must be set explicitly                            |
-| Qwen brain port      | `FB_QWEN_PORT`        | built-in default (8090)                                  |
-| calibr root          | `FB_CALIBR_ROOT`      | none — must be set explicitly                            |
+| llama-server binary | `llama_server_path`  | `llama-server.exe` on PATH                               |
+| sherpa-onnx binary   | `sherpa_exe`          | searched under `<data_dir>/external/`                    |
+| Orukeet model dir    | `orukeet_dir`         | searched under `<data_dir>/external/`                    |
+| Qwen brain model     | `qwen_model`          | none — must be set explicitly                            |
+| Qwen brain port      | `qwen_port`           | built-in default (8090)                                  |
+| calibr root          | `calibr_root`         | none — must be set explicitly                            |
 
-Diary's page/memory thresholds are config.json-only (no env var, they're
-tuning knobs not machine-specific paths): `diary_page_close_chars` (default
+Diary's page/memory thresholds are also config.json-only, tuning knobs
+rather than machine-specific paths: `diary_page_close_chars` (default
 8000), `diary_checkpoint_chars` (default 5000), `diary_idle_close_minutes`
 (default 10). 0 or unset means "use the default"; each is clamped to a hard
 buffer cap regardless of what's set.
