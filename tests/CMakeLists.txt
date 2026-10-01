@@ -10,6 +10,9 @@ function(fb_add_test name)
     add_test(NAME ${name} COMMAND test_${name})
 endfunction()
 
+fb_add_test(check_failure)
+set_tests_properties(check_failure PROPERTIES WILL_FAIL TRUE)
+
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
 fb_add_test(wav_writer ${CMAKE_SOURCE_DIR}/src/audio/wav_writer.c)
 

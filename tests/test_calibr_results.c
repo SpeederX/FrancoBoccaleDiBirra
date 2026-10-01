@@ -1,4 +1,4 @@
-#include <assert.h>
+#include "test_check.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +39,7 @@ static int textview_contains(const FbTextView *tv, const char *needle) {
 
 static void write_file(const char *path, const char *content) {
     FILE *f = fopen(path, "wb");
-    assert(f != NULL);
+    FB_CHECK(f != NULL);
     fputs(content, f);
     fclose(f);
 }
@@ -78,23 +78,23 @@ int main(void) {
     FbTextView *leaderboard = (FbTextView *)malloc(sizeof(FbTextView));
     FbTextView *unconfigured = (FbTextView *)malloc(sizeof(FbTextView));
     FbTextView *logs = (FbTextView *)malloc(sizeof(FbTextView));
-    assert(leaderboard && unconfigured && logs);
+    FB_CHECK(leaderboard && unconfigured && logs);
 
     /* --- leaderboard: generic renderer, tolerant of any shape --- */
     fb_calibr_load_leaderboard(leaderboard, root);
-    assert(leaderboard->count > 0);
-    assert(textview_contains(leaderboard, "winner_selected"));
-    assert(textview_contains(leaderboard, "best-balanced-config"));
-    assert(textview_contains(leaderboard, "42.7"));
-    assert(textview_contains(leaderboard, "qwen2.5-7b-instruct"));
-    assert(textview_contains(leaderboard, "raw results (2 files)"));
-    assert(textview_contains(leaderboard, "run-a.json"));
-    assert(textview_contains(leaderboard, "run-b.json"));
+    FB_CHECK(leaderboard->count > 0);
+    FB_CHECK(textview_contains(leaderboard, "winner_selected"));
+    FB_CHECK(textview_contains(leaderboard, "best-balanced-config"));
+    FB_CHECK(textview_contains(leaderboard, "42.7"));
+    FB_CHECK(textview_contains(leaderboard, "qwen2.5-7b-instruct"));
+    FB_CHECK(textview_contains(leaderboard, "raw results (2 files)"));
+    FB_CHECK(textview_contains(leaderboard, "run-a.json"));
+    FB_CHECK(textview_contains(leaderboard, "run-b.json"));
 
     /* Missing calibr root: still produces an explanatory line, never empty/garbage. */
     fb_calibr_load_leaderboard(unconfigured, "");
-    assert(unconfigured->count == 1);
-    assert(textview_contains(unconfigured, "calibr_root"));
+    FB_CHECK(unconfigured->count == 1);
+    FB_CHECK(textview_contains(unconfigured, "calibr_root"));
 
     /* --- log tail: incremental polling, no duplicate re-reads --- */
     char log_path[700];
@@ -108,24 +108,24 @@ int main(void) {
     fb_textview_clear(logs);
 
     fb_calibr_log_tail_poll(&tail, root, logs);
-    assert(logs->count == 1);
-    assert(textview_contains(logs, "discover"));
-    assert(textview_contains(logs, "scanning"));
+    FB_CHECK(logs->count == 1);
+    FB_CHECK(textview_contains(logs, "discover"));
+    FB_CHECK(textview_contains(logs, "scanning"));
 
     fb_calibr_log_tail_poll(&tail, root, logs);
-    assert(logs->count == 1); /* nothing new appended: no duplicate line */
+    FB_CHECK(logs->count == 1); /* nothing new appended: no duplicate line */
 
     FILE *f = fopen(log_path, "ab");
-    assert(f != NULL);
+    FB_CHECK(f != NULL);
     fputs("{\"ts\":\"T2\",\"source\":\"engine\",\"flow\":\"guided\",\"action\":\"bench\","
           "\"status\":\"completed\",\"message\":\"done\"}\n",
           f);
     fclose(f);
 
     fb_calibr_log_tail_poll(&tail, root, logs);
-    assert(logs->count == 2);
-    assert(textview_contains(logs, "bench"));
-    assert(textview_contains(logs, "done"));
+    FB_CHECK(logs->count == 2);
+    FB_CHECK(textview_contains(logs, "bench"));
+    FB_CHECK(textview_contains(logs, "done"));
 
     free(leaderboard);
     free(unconfigured);
