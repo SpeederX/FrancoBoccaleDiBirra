@@ -6,6 +6,10 @@ a small structured-output "intent brain" for natural-language commands.
 
 ## Quickstart
 
+For development checks, run `./scripts/verify.ps1` from PowerShell. It builds
+and tests Debug and Release; see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites.
+The Ninja commands below need an x64 Visual Studio developer shell on Windows.
+
 ```
 cmake --preset windows-msvc-debug
 cmake --build --preset windows-msvc-debug
@@ -58,11 +62,10 @@ just an informational label, not a switch.
 
 ## Input modes
 
-Four modes (command, scratchpad, diary, project), each with its own color,
-its own centerpiece effect where the sphere normally sits, and its own idea
-of "memory." All four are selectable — project (folder-scoped context) is
-an intentionally empty box right now: it has its own color/effect/panel but
-no feature behind it yet (see `src/project/project.h`). A line with a
+This checkout has three selectable modes: command, scratchpad, and diary.
+The `feature/project-mode` worktree contains a fourth-mode UI scaffold;
+the coding agent is not implemented yet. Each current mode has its own color,
+centerpiece effect, and memory behavior. A line with a
 leading `/` is always a command, in every mode. What happens to free text
 (no leading `/`) depends on the mode, shown by the color of the header/`>`
 prompt/cursor/F-key row and, split across the two rows just above the
@@ -109,8 +112,7 @@ stats (bottom):
   - **F7**/`/new_page` manually closes the current page and starts a fresh
     one — same safe archive-and-consolidate path as an automatic close, just
     triggered on demand. Hypercube effect.
-- **project (green)** — empty box, selectable but not implemented (see
-  above). Tetris build-up effect.
+- **project (planned)** — a coding mode under development in a separate worktree.
 
 Scratchpad also has `/new_page`/F7, but since scratchpad keeps no durable
 record at all by design, it asks first: "start a new scratchpad page?
