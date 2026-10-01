@@ -7,3 +7,4 @@ out/
 *.ilk
 CMakeUserPresets.json
 .claude/
+node_modules/

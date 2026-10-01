@@ -8,17 +8,21 @@ This guide supplies the repository commands; AGENTS.md supplies project policy.
 From the checkout you changed, run:
 
 ```powershell
+npm ci --prefix tools/agent-service --no-audit --no-fund
 ./scripts/verify.ps1
 ```
 
 The command checks patch whitespace, builds the application, and runs CTest in
-both Debug and Release. A failed build or test returns a failing command. CI runs
+both Debug and Release, then checks and tests the Pi adapter. A failed build or
+test returns a failing command. CI runs
 the same command on Windows and Linux for pull requests and pushes to main.
 
 Windows needs CMake and Visual Studio with **Desktop development with C++**.
 The script discovers Visual Studio and selects x64 without depending on an
 inherited compiler environment. Linux needs PowerShell, CMake, Ninja, and a C11
-compiler. For a Ninja build on Windows, use a matching x64 developer shell and
+compiler. Full verification also needs Node.js 22.19 or newer and npm; the
+native CMake build itself remains independent of Node. For a Ninja build on
+Windows, use a matching x64 developer shell and
 pass `-Generator Ninja`. `-Configuration Debug` is useful during iteration;
 run both configurations before committing.
 
@@ -39,6 +43,7 @@ is required for success. It verifies that test checks remain active with
 | `src/platform/` | Windows/POSIX process, thread, filesystem adapters |
 | `src/tui/` | Terminal controls and rendering |
 | `tests/` | Native regression tests |
+| `tools/agent-service/` | Shared Pi SDK adapter and JSON-lines worker |
 | `third_party/VERSIONS.md` | Vendored source identities |
 
 Use a feature worktree for substantial changes. Run verification from that

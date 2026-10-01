@@ -11,9 +11,18 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 function Invoke-Checked {
     param([string]$Program, [string[]]$Arguments)
 
-    & $Program @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Program exited with code $LASTEXITCODE"
+    $executable = Get-Command $Program -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $executable.Source @Arguments
+        $commandExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
+    if ($commandExitCode -ne 0) {
+        throw "$Program exited with code $commandExitCode"
     }
 }
 
@@ -61,6 +70,13 @@ try {
             Invoke-Checked 'ctest' @('--test-dir', $buildDir, '--output-on-failure', '--no-tests=error')
         }
     }
+
+    Invoke-Checked 'node' @('--check', 'tools/agent-service/worker.mjs')
+    $npmExecutable = 'npm'
+    if ($env:OS -eq 'Windows_NT') {
+        $npmExecutable = 'npm.cmd'
+    }
+    Invoke-Checked $npmExecutable @('test', '--prefix', 'tools/agent-service')
 }
 finally {
     Pop-Location

@@ -10,6 +10,11 @@ For development checks, run `./scripts/verify.ps1` from PowerShell. It builds
 and tests Debug and Release; see [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites.
 The Ninja commands below need an x64 Visual Studio developer shell on Windows.
 
+Project-mode development uses a shared Pi agent adapter, with the same loaded
+llama.cpp model for tool runs and compaction. See the
+[harness plan](docs/HARNESS-PLAN.md) and [adapter contract](tools/agent-service/README.md)
+for implementation status and session controls.
+
 ```
 cmake --preset windows-msvc-debug
 cmake --build --preset windows-msvc-debug
