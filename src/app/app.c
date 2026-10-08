@@ -30,7 +30,8 @@ void fb_app_init(FbApp *app, int width, int height) {
     fb_chat_job_init(&app->diary_chat_job);
     fb_download_job_init(&app->download_job);
 
-    app->mic_available = (fb_mic_init() == 0);
+    fb_mic_init();
+    app->mic_available = fb_mic_state() == FB_MIC_READY;
     if (fb_get_data_dir(app->data_dir, sizeof(app->data_dir)) != 0) {
         app->data_dir[0] = '\0';
     }
@@ -435,6 +436,7 @@ static void tick_download(FbApp *app) {
 }
 
 void fb_app_tick(FbApp *app) {
+    app->mic_available = fb_mic_state() == FB_MIC_READY;
     fb_meeting_tick(&app->meeting);
     fb_backend_mgr_tick(&app->backend_mgr);
     tick_download(app);
@@ -513,7 +515,7 @@ void fb_app_shutdown(FbApp *app) {
     fb_chat_shutdown(&app->diary_chat_job);
     fb_diary_shutdown(&app->diary);
     fb_backend_mgr_shutdown(&app->backend_mgr);
-    if (app->mic_available) fb_mic_shutdown();
+    fb_mic_shutdown();
 }
 
 void fb_app_push_wave_sample(FbApp *app, float amplitude) {
@@ -855,6 +857,13 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             return 0;
         }
 
+        if (ev->key == FB_KEY_CTRL_SPACE && !app->mic_available) {
+            snprintf(app->last_submitted, FB_CMDLINE_MAX, "%s",
+                fb_mic_state() == FB_MIC_STARTING ? "microphone is opening; wait for it to become ready"
+                                                : "microphone unavailable; check the default input device");
+            return 0;
+        }
+
         if (ev->key == FB_KEY_CTRL_SPACE && app->mic_available) {
             if (!app->recording) {
                 /* Both the WAV and the transcription log live at fixed
@@ -1134,7 +1143,8 @@ void fb_app_render(FbApp *app) {
     fb_draw_text(layout.header.x, layout.header.y, title, mode_r, mode_g, mode_b, FB_COLOR_BG_R,
                  FB_COLOR_BG_G, FB_COLOR_BG_B);
 
-    const char *mic_status = !app->mic_available ? "[mic unavailable]"
+    const char *mic_status = fb_mic_state() == FB_MIC_STARTING ? "[mic opening]"
+                              : !app->mic_available ? "[mic unavailable]"
                               : app->recording    ? "[REC - ctrl+space to stop]"
                                                    : "[ctrl+space to record]";
     int mic_status_x = layout.header.w - (int)strlen(mic_status) - 1;

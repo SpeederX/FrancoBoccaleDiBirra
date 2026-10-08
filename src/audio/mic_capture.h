@@ -17,7 +17,16 @@
    (--num-threads=2) instead of by constraining recording length. */
 #define FB_MIC_MAX_RECORD_SECONDS 300
 
+typedef enum {
+    FB_MIC_OFF,
+    FB_MIC_STARTING,
+    FB_MIC_READY,
+    FB_MIC_ERROR
+} FbMicState;
+
+/* Starts device initialization in the background. */
 int fb_mic_init(void);
+FbMicState fb_mic_state(void);
 void fb_mic_shutdown(void);
 
 /* Drains newly available metering levels (RMS amplitude in [0,1], oldest

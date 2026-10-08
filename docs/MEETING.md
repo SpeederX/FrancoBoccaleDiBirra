@@ -248,7 +248,18 @@ not replace trying the actual terminal controls and hearing the recording.
 Additional tests cover mixing, WAV append/resume, incremental output, stable
 voice numbering across blocks, retained anchors on retry, dynamic name updates,
 manual overrides during jobs, and preservation of cleanup during identification.
-All 11 CTest suites passed in Debug and Release.
+All 12 CTest suites passed in Debug and Release.
+
+On 2026-10-09, native startup diagnostics reproduced a blank initial terminal
+while the existing microphone initialized on the UI thread. In that run, the
+first frame took 3938 ms from entering main, including 3922 ms in microphone
+initialization. Microphone startup now runs in a background worker; the next
+diagnostic run rendered the first frame after approximately 32 ms. Reading the
+real console buffer confirmed the Meeting heading and commands at 120 x 30.
+These two startup checks are diagnostics, not a general benchmark. Tests cover
+a blocked initialization, device-open/start failures, shutdown while opening,
+and successful metering/recording after readiness. The ordinary modes show
+`mic opening` until ready; Meeting retains its independent source capture.
 
 Run the complete suite (Python 3 enables the pipeline test):
 
