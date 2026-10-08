@@ -6,6 +6,7 @@
 #include "app/app.h"
 #include "meeting/meeting_document.h"
 #include "meeting/meeting_cli.h"
+#include "net/sockets_compat.h"
 #include "platform/platform.h"
 #include "util/fileutil.h"
 #include "util/paths.h"
@@ -45,7 +46,7 @@ static void type(FbApp *app, const char *text) {
 
 static void idle(FbMeeting *meeting) {
     unsigned long long deadline = fb_now_ms() + 5000;
-    while (meeting->job || meeting->save_job) {
+    while (meeting->job || meeting->asr_job || meeting->save_job || meeting->document_dirty) {
         fb_meeting_tick(meeting);
         assert(fb_now_ms() < deadline);
         fb_sleep_ms(5);
@@ -53,6 +54,7 @@ static void idle(FbMeeting *meeting) {
 }
 
 int main(int argc, char **argv) {
+    fb_sock_platform_init();
     FbConfig settings = {0};
     char *launch[] = {"fbdb", "--meeting", "--parakeet", "C:/tools with spaces/parakeet-cli.exe",
                       "--asr", "italian.gguf", "--llm-port", "18089", "--llm-model", "exact-model"};
@@ -86,6 +88,14 @@ int main(int argc, char **argv) {
     assert(fb_config_load(&reopened, "test-meeting-state") == 0);
     assert(strcmp(reopened.meeting_folder, app->config.meeting_folder) == 0);
     assert(fb_meeting_command(&app->meeting, "folder nonexistent-parent/subfolder") == -1);
+    assert(app->meeting.source == FB_CAPTURE_BOTH);
+    assert(fb_meeting_command(&app->meeting, "source unknown") == -1);
+    assert(fb_meeting_command(&app->meeting, "source microphone") == 1);
+    assert(app->meeting.source == FB_CAPTURE_MICROPHONE);
+    assert(fb_config_save(&app->config, "test-meeting-state") == 0);
+    assert(fb_config_load(&reopened, "test-meeting-state") == 0);
+    assert(reopened.meeting_capture_source == FB_CAPTURE_MICROPHONE);
+    assert(fb_meeting_command(&app->meeting, "source both") == 1);
     key(app, FB_KEY_TAB, 0);
     assert(app->input_mode == FB_INPUT_MODE_SCRATCHPAD);
     key(app, FB_KEY_TAB, 0);
@@ -137,18 +147,20 @@ int main(int argc, char **argv) {
     assert(fb_meeting_command(&app->meeting, "open nonexistent-meeting-folder") == 0);
     idle(&app->meeting);
     assert(app->meeting.document && strstr(app->meeting.notes.text, "Friday"));
-    if (argc > 1) {
+    if (argc > 1 && strcmp(argv[1], "--live-hardware") != 0) {
         snprintf(app->meeting.tools.parakeet_exe, 512, "%s", argv[1]);
         snprintf(app->meeting.tools.asr_model, 512, "slow");
         snprintf(app->meeting.tools.diar_model, 512, "fixture");
         assert(fb_meeting_command(&app->meeting, "transcribe") == 0);
         fb_sleep_ms(80);
-        assert(app->meeting.job);
+        assert(app->meeting.asr_job);
         key(app, FB_KEY_F8, 0);
         type(app, " Notes added during transcription.");
         assert(strstr(app->meeting.notes.text, "during transcription"));
         assert(fb_meeting_command(&app->meeting, "new") == -1);
+        app->meeting.asr_live = 1;
         assert(fb_meeting_command(&app->meeting, "cancel") == 0);
+        assert(app->meeting.recording_finished && !app->meeting.paused);
         unsigned long long before = fb_now_ms();
         idle(&app->meeting);
         assert(fb_now_ms() - before < 2000);
@@ -157,6 +169,98 @@ int main(int argc, char **argv) {
         assert(fb_meeting_command(&app->meeting, "save") == 0);
         idle(&app->meeting);
         key(app, FB_KEY_F8, 0);
+    }
+    if (argc == 3) {
+        cJSON_Delete(app->meeting.document);
+        app->meeting.document = fb_meeting_document_parse(
+            "{\"utterances\":[{\"speaker\":3,\"text\":\"Mario, puoi mandare il documento?\",\"start\":0,\"end\":2},"
+            "{\"speaker\":7,\"text\":\"Sì, lo mando domani.\",\"start\":2,\"end\":4},"
+            "{\"speaker\":3,\"text\":\"Giulia è assente oggi.\",\"start\":4,\"end\":6}]}", error, sizeof(error));
+        assert(app->meeting.document);
+        app->meeting.llm_port = atoi(argv[2]);
+        snprintf(app->meeting.llm_model, sizeof(app->meeting.llm_model), "exact-fixture-model");
+        app->meeting.identity_done = 0;
+        fb_meeting_tick(&app->meeting);
+        idle(&app->meeting);
+        char *named = fb_meeting_document_text(app->meeting.document, 0);
+        assert(strstr(named, "Mario: Sì"));
+        assert(!strstr(named, "Giulia:"));
+        free(named);
+        cJSON *spoken = cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances");
+        assert(!cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(spoken, 1), "cleaned"));
+        cJSON_AddStringToObject(cJSON_GetArrayItem(spoken, 1), "cleaned", "Sì, lo invio domani.");
+        assert(fb_meeting_command(&app->meeting, "speakers") == 0);
+        assert(strstr(app->meeting.output_text, "inferred from addressed name"));
+        assert(fb_meeting_command(&app->meeting, "identify") == 0);
+        assert(fb_meeting_command(&app->meeting, "name 2 Marco") == 0);
+        idle(&app->meeting);
+        named = fb_meeting_document_text(app->meeting.document, 0);
+        assert(strstr(named, "Marco: Sì") && !strstr(named, "Mario: Sì"));
+        free(named);
+        spoken = cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances");
+        assert(strcmp(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(spoken, 1), "cleaned")->valuestring,
+                      "Sì, lo invio domani.") == 0);
+    }
+    if (argc == 5 && strcmp(argv[1], "--live-hardware") == 0) {
+        assert(fb_meeting_command(&app->meeting, "new") == 0);
+        idle(&app->meeting);
+        snprintf(app->meeting.tools.parakeet_library, 512, "%s", argv[2]);
+        snprintf(app->meeting.tools.asr_model, 512, "%s", argv[3]);
+        snprintf(app->meeting.tools.diar_model, 512, "%s", argv[4]);
+        assert(app->meeting.source == FB_CAPTURE_BOTH);
+        key(app, FB_KEY_CTRL_SPACE, 0);
+        assert(app->meeting.capture && app->meeting.asr_job);
+        FbMeetingJob *session = app->meeting.asr_job;
+        char recording_directory[600];
+        snprintf(recording_directory, sizeof(recording_directory), "%s", app->meeting.directory);
+        type(app, "Notes during live capture.");
+        unsigned long long deadline = fb_now_ms() + 60000;
+        while (!app->meeting.document ||
+               cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")) == 0) {
+            fb_meeting_tick(&app->meeting);
+            assert(app->meeting.asr_job && fb_now_ms() < deadline);
+            fb_sleep_ms(10);
+        }
+        assert(app->meeting.capture);
+        assert(app->meeting.output_text && strstr(app->meeting.output_text, "Speaker"));
+        key(app, FB_KEY_CTRL_SPACE, 0);
+        deadline = fb_now_ms() + 15000;
+        while (app->meeting.capture) {
+            fb_meeting_tick(&app->meeting);
+            assert(fb_now_ms() < deadline);
+            fb_sleep_ms(10);
+        }
+        assert(app->meeting.paused && app->meeting.asr_job == session);
+        unsigned long long before_resume = app->meeting.capture_status.frames;
+        key(app, FB_KEY_CTRL_SPACE, 0);
+        assert(app->meeting.capture && app->meeting.asr_job == session);
+        assert(strcmp(app->meeting.directory, recording_directory) == 0);
+        type(app, " More notes after resume.");
+        deadline = fb_now_ms() + 3000;
+        while (fb_now_ms() < deadline) {
+            fb_meeting_tick(&app->meeting);
+            fb_sleep_ms(10);
+        }
+        key(app, FB_KEY_CTRL_SPACE, 0);
+        deadline = fb_now_ms() + 15000;
+        while (app->meeting.capture) {
+            fb_meeting_tick(&app->meeting);
+            assert(fb_now_ms() < deadline);
+            fb_sleep_ms(10);
+        }
+        assert(app->meeting.paused && app->meeting.capture_status.frames > before_resume);
+        assert(fb_meeting_command(&app->meeting, "finish") == 0);
+        deadline = fb_now_ms() + 60000;
+        while (app->meeting.asr_job || app->meeting.save_job || app->meeting.document_dirty) {
+            fb_meeting_tick(&app->meeting);
+            assert(fb_now_ms() < deadline);
+            fb_sleep_ms(10);
+        }
+        assert(app->meeting.recording_finished && !app->meeting.paused);
+        assert(strstr(app->meeting.notes.text, "after resume"));
+        printf("live qualification: %llu frames, %llu dropped, %d utterances, same session and folder\n",
+            app->meeting.capture_status.frames, app->meeting.capture_status.dropped_frames,
+            cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")));
     }
     key(app, FB_KEY_PAGE_DOWN, 0);
     assert(app->meeting.output.scroll > 0);
@@ -183,5 +287,6 @@ int main(int argc, char **argv) {
     assert(app->input_mode == FB_INPUT_MODE_COMMAND);
     fb_meeting_shutdown(&app->meeting);
     free(app);
+    fb_sock_platform_cleanup();
     return 0;
 }

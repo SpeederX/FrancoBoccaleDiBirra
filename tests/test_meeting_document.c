@@ -66,6 +66,26 @@ int main(void) {
     cJSON_Delete(doc);
     doc = fb_meeting_document_parse("{\"utterances\":[]}", error, sizeof(error));
     assert(doc);
+    assert(fb_meeting_document_append(doc,
+        "{\"utterances\":[{\"speaker\":3,\"text\":\"Mario, puoi inviarlo?\",\"start\":0,\"end\":2},"
+        "{\"speaker\":7,\"text\":\"Sì, lo invio domani.\",\"start\":2,\"end\":4}]}", error, sizeof(error)) == 0);
+    const char *dialogue = "{\"utterances\":[{\"id\":1,\"text\":\"Mario, puoi inviarlo?\"},{\"id\":2,\"text\":\"Sì, lo invio domani.\"}],"
+        "\"dialogue_names\":[{\"speaker\":2,\"name\":\"Mario\",\"address_utterance\":1,\"utterance\":2,\"quote\":\"Mario, puoi inviarlo?\"}]}";
+    assert(fb_meeting_document_apply(doc, dialogue, 0, 2, error, sizeof(error)) == 0);
+    text = fb_meeting_document_text(doc, 0);
+    assert(strstr(text, "Mario: Sì"));
+    free(text);
+    assert(fb_meeting_document_name(doc, 2, "Marco", error, sizeof(error)) == 0);
+    assert(fb_meeting_document_apply(doc, dialogue, 0, 2, error, sizeof(error)) == 0);
+    assert(fb_meeting_document_append(doc,
+        "{\"utterances\":[{\"speaker\":7,\"text\":\"Altro blocco.\",\"start\":20,\"end\":22}]}", error, sizeof(error)) == 0);
+    assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(doc, "speakers")) == 2);
+    cJSON *last = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(doc, "utterances"), 2);
+    assert(cJSON_GetObjectItemCaseSensitive(last, "speaker")->valueint == 2);
+    const char *bad_dialogue = "{\"utterances\":[{\"id\":1,\"text\":\"Mario, puoi inviarlo?\"},{\"id\":2,\"text\":\"Sì, lo invio domani.\"}],"
+        "\"dialogue_names\":[{\"speaker\":1,\"name\":\"Mario\",\"address_utterance\":1,\"utterance\":2,\"quote\":\"Mario, puoi inviarlo?\"}]}";
+    assert(fb_meeting_document_apply(doc, bad_dialogue, 0, 2, error, sizeof(error)) == -1);
+    assert(fb_meeting_document_append(doc, "broken", error, sizeof(error)) == -1);
     cJSON_Delete(doc);
     return 0;
 }

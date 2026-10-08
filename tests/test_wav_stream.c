@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "audio/wav_stream.h"
+#include "audio/pcm_reader.h"
 
 int main(void) {
     FbWavStream stream;
@@ -28,6 +29,23 @@ int main(void) {
     assert(bytes[44] == 1 && bytes[45] == 128);
     assert(bytes[46] == 0 && bytes[47] == 0);
     assert(bytes[48] == 255 && bytes[49] == 127);
+    assert(fb_wav_stream_resume(&stream, "missing.wav") == -1);
+    assert(fb_wav_stream_resume(&stream, "stream.wav") == 0);
+    assert(stream.frames == 300);
+    FbPcmReader reader;
+    assert(fb_pcm_reader_open(&reader, "stream.wav", 1) == 0);
+    float readback[310];
+    assert(fb_pcm_reader_read(&reader, readback, 310) == 300);
+    assert(fb_wav_stream_append(&stream, samples, 3) == 0);
+    assert(fb_pcm_reader_read(&reader, readback, 310) == 3);
+    assert(readback[0] < -0.99f && readback[1] == 0 && readback[2] > 0.99f);
+    fb_pcm_reader_close(&reader);
+    assert(fb_wav_stream_close(&stream) == 0);
+    assert(fb_pcm_reader_open(&reader, "stream.wav", 0) == 0);
+    assert(reader.remaining == 303);
+    assert(fb_pcm_reader_read(&reader, readback, 310) == 303);
+    assert(fb_pcm_reader_read(&reader, readback, 310) == 0);
+    fb_pcm_reader_close(&reader);
     assert(fb_wav_stream_open(&stream, "stream.wav", 16000) == 0);
     float invalid[] = {NAN};
     assert(fb_wav_stream_append(&stream, invalid, 1) == -1);

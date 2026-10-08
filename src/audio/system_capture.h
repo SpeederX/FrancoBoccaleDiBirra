@@ -4,6 +4,11 @@
 #include <stddef.h>
 
 typedef struct FbSystemCapture FbSystemCapture;
+typedef enum {
+    FB_CAPTURE_SYSTEM = 1,
+    FB_CAPTURE_MICROPHONE = 2,
+    FB_CAPTURE_BOTH = 3
+} FbCaptureSource;
 
 typedef enum {
     FB_CAPTURE_STARTING,
@@ -22,6 +27,8 @@ typedef struct {
 } FbCaptureStatus;
 
 FbSystemCapture *fb_system_capture_start(const char *path);
+FbSystemCapture *fb_system_capture_start_source(const char *path, FbCaptureSource source, int resume);
+int fb_system_capture_sources(char *out, size_t capacity);
 void fb_system_capture_stop(FbSystemCapture *capture);
 void fb_system_capture_poll(FbSystemCapture *capture, FbCaptureStatus *status);
 void fb_system_capture_free(FbSystemCapture *capture);

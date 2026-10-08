@@ -19,6 +19,16 @@ typedef struct {
     char status[256];
     cJSON *document;
     FbMeetingJob *job;
+    FbMeetingJob *asr_job;
+    unsigned long long asr_revision;
+    int asr_live;
+    int paused;
+    int finish_pending;
+    int recording_finished;
+    int identity_done;
+    int identifying_total;
+    size_t processing_revision;
+    FbCaptureSource source;
     FbMeetingOperation operation;
     FbMeetingJob *save_job;
     size_t saving_revision;

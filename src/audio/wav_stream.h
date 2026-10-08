@@ -13,6 +13,7 @@ typedef struct {
 } FbWavStream;
 
 int fb_wav_stream_open(FbWavStream *stream, const char *path, int sample_rate);
+int fb_wav_stream_resume(FbWavStream *stream, const char *path);
 int fb_wav_stream_append(FbWavStream *stream, const float *samples, size_t count);
 int fb_wav_stream_close(FbWavStream *stream);
 

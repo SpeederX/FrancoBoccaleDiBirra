@@ -1,5 +1,6 @@
 function(fb_add_test name)
-    add_executable(test_${name} test_${name}.c ${ARGN})
+    cmake_parse_arguments(FB_TEST "" "" "ARGS" ${ARGN})
+    add_executable(test_${name} test_${name}.c ${FB_TEST_UNPARSED_ARGUMENTS})
     target_include_directories(test_${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
     target_link_libraries(test_${name} PRIVATE fb_warnings)
     if (MSVC)
@@ -9,24 +10,44 @@ function(fb_add_test name)
         target_compile_options(test_${name} PRIVATE -UNDEBUG)
         target_link_libraries(test_${name} PRIVATE m)
     endif()
-    add_test(NAME ${name} COMMAND test_${name})
+    add_test(NAME ${name} COMMAND test_${name} ${FB_TEST_ARGS})
 endfunction()
 
 add_executable(meeting_tool_fixture meeting_tool_fixture.c)
+add_library(meeting_parakeet_fixture SHARED meeting_parakeet_fixture.c)
+target_include_directories(meeting_parakeet_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(meeting_tool_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src)
 find_package(Python3 QUIET COMPONENTS Interpreter)
 if (Python3_FOUND)
     add_test(NAME meeting_pipeline COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_pipeline.py
-        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture>)
+        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:test_meeting_ui>)
 endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
 fb_add_test(wav_writer ${CMAKE_SOURCE_DIR}/src/audio/wav_writer.c)
-fb_add_test(wav_stream ${CMAKE_SOURCE_DIR}/src/audio/wav_stream.c)
+fb_add_test(wav_stream ${CMAKE_SOURCE_DIR}/src/audio/wav_stream.c ${CMAKE_SOURCE_DIR}/src/audio/pcm_reader.c)
+fb_add_test(audio_mix ${CMAKE_SOURCE_DIR}/src/audio/audio_mix.c)
 fb_add_test(notepad ${CMAKE_SOURCE_DIR}/src/tui/widget_notepad.c
     ${CMAKE_SOURCE_DIR}/src/tui/layout.c ${CMAKE_SOURCE_DIR}/src/util/utf8.c)
 fb_add_test(meeting_document ${CMAKE_SOURCE_DIR}/src/meeting/meeting_document.c)
+fb_add_test(meeting_stream ${CMAKE_SOURCE_DIR}/src/meeting/meeting_job.c
+    ${CMAKE_SOURCE_DIR}/src/meeting/meeting_document.c ${CMAKE_SOURCE_DIR}/src/meeting/parakeet_stream.c
+    ${CMAKE_SOURCE_DIR}/src/audio/wav_stream.c ${CMAKE_SOURCE_DIR}/src/audio/pcm_reader.c
+    ${CMAKE_SOURCE_DIR}/src/util/fileutil.c ${CMAKE_SOURCE_DIR}/src/util/utf8.c
+    ${CMAKE_SOURCE_DIR}/src/net/http_client.c ARGS $<TARGET_FILE:meeting_parakeet_fixture>)
+target_link_libraries(test_meeting_stream PRIVATE cjson)
+if (WIN32)
+    target_sources(test_meeting_stream PRIVATE ${CMAKE_SOURCE_DIR}/src/platform/win/thread_win.c
+        ${CMAKE_SOURCE_DIR}/src/platform/win/paths_win.c ${CMAKE_SOURCE_DIR}/src/platform/win/proc_win.c
+        ${CMAKE_SOURCE_DIR}/src/platform/win/sock_win.c)
+    target_link_libraries(test_meeting_stream PRIVATE ws2_32)
+else()
+    target_sources(test_meeting_stream PRIVATE ${CMAKE_SOURCE_DIR}/src/platform/posix/thread_posix.c
+        ${CMAKE_SOURCE_DIR}/src/platform/posix/paths_posix.c ${CMAKE_SOURCE_DIR}/src/platform/posix/proc_posix.c
+        ${CMAKE_SOURCE_DIR}/src/platform/posix/sock_posix.c)
+    target_link_libraries(test_meeting_stream PRIVATE pthread ${CMAKE_DL_LIBS})
+endif()
 target_link_libraries(test_meeting_document PRIVATE cjson)
 
 # calibr_results/calibr_log_tail render into an FbTextView, whose render
@@ -58,7 +79,7 @@ add_test(NAME meeting_lifecycle COMMAND test_meeting_ui $<TARGET_FILE:meeting_to
 if (WIN32)
     target_link_libraries(test_meeting_ui PRIVATE ws2_32 ole32 shell32)
 else()
-    target_link_libraries(test_meeting_ui PRIVATE pthread)
+    target_link_libraries(test_meeting_ui PRIVATE pthread ${CMAKE_DL_LIBS})
 endif()
 
 fb_add_test(calibr_results

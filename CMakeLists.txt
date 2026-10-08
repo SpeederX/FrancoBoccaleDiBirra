@@ -43,6 +43,7 @@ add_executable(fbdb
     src/meeting/meeting_document.c
     src/meeting/meeting_job.c
     src/meeting/meeting.c
+    src/meeting/parakeet_stream.c
     src/download/download_job.c
     src/tui/layout.c
     src/tui/widget_cmdline.c
@@ -61,6 +62,8 @@ add_executable(fbdb
     src/audio/mic_capture.c
     src/audio/wav_writer.c
     src/audio/wav_stream.c
+    src/audio/pcm_reader.c
+    src/audio/audio_mix.c
     src/audio/system_capture.c
     src/net/http_client.c
     src/net/llama_client.c
@@ -110,7 +113,7 @@ else()
         src/platform/posix/thread_posix.c
         src/platform/posix/open_url_posix.c
     )
-    target_link_libraries(fbdb PRIVATE termbox2 pthread m)
+    target_link_libraries(fbdb PRIVATE termbox2 pthread m ${CMAKE_DL_LIBS})
     target_compile_definitions(fbdb PRIVATE
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline"

@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <string.h>
+#include "audio/pcm_reader.h"
 
 static void u32le(unsigned char *out, uint32_t value) {
     for (int i = 0; i < 4; ++i) {
@@ -79,6 +80,29 @@ int fb_wav_stream_append(FbWavStream *stream, const float *samples, size_t count
         }
         stream->frames += (uint32_t)take;
         offset += take;
+    }
+    return fflush(stream->file) == 0 ? 0 : -1;
+}
+
+int fb_wav_stream_resume(FbWavStream *stream, const char *path) {
+    FbPcmReader reader;
+    if (fb_pcm_reader_open(&reader, path, 0) != 0 || ftell(reader.file) != 44) {
+        fb_pcm_reader_close(&reader);
+        return -1;
+    }
+    uint64_t frames = reader.remaining;
+    fb_pcm_reader_close(&reader);
+    memset(stream, 0, sizeof(*stream));
+    stream->file = fopen(path, "rb+");
+    if (!stream->file) {
+        return -1;
+    }
+    stream->sample_rate = 16000;
+    stream->frames = (uint32_t)frames;
+    if (fseek(stream->file, 0, SEEK_END) != 0 || ftell(stream->file) != 44 + (long long)frames * 2) {
+        fclose(stream->file);
+        stream->file = NULL;
+        return -1;
     }
     return 0;
 }

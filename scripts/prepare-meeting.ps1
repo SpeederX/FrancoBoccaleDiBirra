@@ -16,6 +16,11 @@ $files = @(
         Hash = 'D74B4E857F75F91AE215C5E91EC42BF15EC84ED3A369423C134DBD6422243ED8'
     },
     @{
+        Name = 'parakeet-win-library.zip'
+        Url = 'https://github.com/mudler/parakeet.cpp/releases/download/v0.6.1/parakeet-v0.6.1-lib-win-cpu-x64.zip'
+        Hash = '95B41515EFEAB246094D1793A1C0A12D727BC1CC01E4C28FE37A16A994B26774'
+    },
+    @{
         Name = 'tdt-0.6b-v3-q8_0.gguf'
         Url = "$modelBase/tdt-0.6b-v3-q8_0.gguf"
         Hash = '4D69A4A6683F4F2D952BAD794C1357CA6EB628027695B4699C5A9AD4CD07D757'
@@ -55,6 +60,7 @@ foreach ($file in $files) {
 }
 
 Expand-Archive -LiteralPath (Join-Path $AssetsDirectory 'parakeet-win-cpu.zip') -DestinationPath $AssetsDirectory -Force
+Expand-Archive -LiteralPath (Join-Path $AssetsDirectory 'parakeet-win-library.zip') -DestinationPath $AssetsDirectory -Force
 $credits = @('NOTICE-parakeet-bundle-small.txt', 'licenses/CC-BY-4.0.txt',
              'licenses/OpenMDW-1.1.txt', 'licenses/MIT.txt', 'licenses/Apache-2.0.txt')
 foreach ($name in $credits) {

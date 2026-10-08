@@ -31,6 +31,8 @@ typedef struct {
     char meeting_ffmpeg_exe[512];
     char meeting_llm_model[128];
     char meeting_folder[512];
+    char meeting_parakeet_library[512];
+    int meeting_capture_source;
     int meeting_llm_port;
 
     /* Diary mode's page/memory thresholds -- 0 means "use the built-in

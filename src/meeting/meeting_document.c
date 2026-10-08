@@ -151,6 +151,7 @@ int fb_meeting_document_valid(const cJSON *document) {
             !integer(field(item, "slot"), 0) || !cJSON_IsString(source) ||
             (strcmp(source->valuestring, "numbered") != 0 &&
              strcmp(source->valuestring, "manual") != 0 &&
+             strcmp(source->valuestring, "dialogue_inferred") != 0 &&
              strcmp(source->valuestring, "introduction_inferred") != 0) ||
             (name && (!cJSON_IsString(name) || !valid_name(name->valuestring)))) {
             return 0;
@@ -179,6 +180,79 @@ static void set_name(cJSON *speaker, const char *name, const char *source) {
     cJSON_DeleteItemFromObjectCaseSensitive(speaker, "name");
     cJSON_AddStringToObject(speaker, "name", name);
     cJSON_ReplaceItemInObjectCaseSensitive(speaker, "source", cJSON_CreateString(source));
+}
+
+int fb_meeting_document_append(cJSON *document, const char *scene, char *error, size_t capacity) {
+    cJSON *part = fb_meeting_document_parse(scene, error, capacity);
+    if (!part) {
+        return -1;
+    }
+    cJSON *utterances = field(document, "utterances");
+    cJSON *item;
+    cJSON_ArrayForEach(item, field(part, "utterances")) {
+        cJSON *copy = cJSON_Duplicate(item, 1);
+        int id = field(item, "speaker")->valueint;
+        cJSON *speaker = speaker_by_id(part, id);
+        int slot = speaker ? field(speaker, "slot")->valueint : -1;
+        cJSON_ReplaceItemInObjectCaseSensitive(copy, "id", cJSON_CreateNumber(cJSON_GetArraySize(utterances) + 1));
+        cJSON_ReplaceItemInObjectCaseSensitive(copy, "speaker", cJSON_CreateNumber(speaker_for_slot(document, slot)));
+        cJSON_AddItemToArray(utterances, copy);
+    }
+    cJSON_Delete(part);
+    return 0;
+}
+
+static int same_utterance(const cJSON *current, const cJSON *old) {
+    const char *keys[] = {"id", "speaker", "start", "end", "text"};
+    if (!current || !old) {
+        return 0;
+    }
+    for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
+        if (!cJSON_Compare(field(current, keys[i]), field(old, keys[i]), 1)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+void fb_meeting_document_overlay(cJSON *document, const cJSON *previous) {
+    if (!fb_meeting_document_valid(previous)) {
+        return;
+    }
+    cJSON *old_utterances = field(previous, "utterances");
+    cJSON *new_utterances = field(document, "utterances");
+    int prefix = 0;
+    for (; prefix < cJSON_GetArraySize(old_utterances); ++prefix) {
+        cJSON *old = cJSON_GetArrayItem(old_utterances, prefix);
+        cJSON *current = cJSON_GetArrayItem(new_utterances, prefix);
+        if (!same_utterance(current, old)) {
+            break;
+        }
+        cJSON *cleaned = field(old, "cleaned");
+        if (cleaned) {
+            cJSON_DeleteItemFromObjectCaseSensitive(current, "cleaned");
+            cJSON_AddItemToObject(current, "cleaned", cJSON_Duplicate(cleaned, 1));
+        }
+    }
+    if (prefix != cJSON_GetArraySize(old_utterances)) {
+        return;
+    }
+    cJSON *prior;
+    cJSON_ArrayForEach(prior, field(previous, "speakers")) {
+        cJSON *speaker = speaker_by_id(document, field(prior, "id")->valueint);
+        if (!speaker || !field(prior, "name") ||
+            !cJSON_Compare(field(speaker, "slot"), field(prior, "slot"), 1) ||
+            strcmp(field(speaker, "source")->valuestring, "manual") == 0) {
+            continue;
+        }
+        const char *keys[] = {"name", "source", "evidence", "utterance", "address_utterance"};
+        for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
+            cJSON_DeleteItemFromObjectCaseSensitive(speaker, keys[i]);
+            if (field(prior, keys[i])) {
+                cJSON_AddItemToObject(speaker, keys[i], cJSON_Duplicate(field(prior, keys[i]), 1));
+            }
+        }
+    }
 }
 
 int fb_meeting_document_preserve_names(cJSON *document, const cJSON *previous) {
@@ -273,6 +347,35 @@ int fb_meeting_document_apply(cJSON *document, const char *response, int first, 
             return -1;
         }
     }
+    cJSON *dialogue = field(reply, "dialogue_names");
+    if (dialogue && !cJSON_IsArray(dialogue)) {
+        snprintf(error, capacity, "LLM dialogue_names must be an array");
+        cJSON_Delete(reply);
+        return -1;
+    }
+    cJSON_ArrayForEach(intro, dialogue) {
+        cJSON *id = field(intro, "speaker");
+        cJSON *address_id = field(intro, "address_utterance");
+        cJSON *reply_id = field(intro, "utterance");
+        cJSON *name = field(intro, "name");
+        cJSON *quote = field(intro, "quote");
+        cJSON *address = integer(address_id, 1) ? cJSON_GetArrayItem(raw, address_id->valueint - 1) : NULL;
+        cJSON *answer = integer(reply_id, 1) ? cJSON_GetArrayItem(raw, reply_id->valueint - 1) : NULL;
+        if (!integer(id, 1) || !address || !answer || !speaker_by_id(document, id->valueint) ||
+            !cJSON_IsString(name) || !valid_name(name->valuestring) ||
+            !cJSON_IsString(quote) || !quote->valuestring[0] ||
+            reply_id->valueint != address_id->valueint + 1 ||
+            field(answer, "speaker")->valueint != id->valueint ||
+            field(address, "speaker")->valueint == 0 ||
+            field(address, "speaker")->valueint == id->valueint ||
+            address_id->valueint <= first || reply_id->valueint > first + count ||
+            !strstr(field(address, "text")->valuestring, quote->valuestring) ||
+            !strstr(quote->valuestring, name->valuestring)) {
+            snprintf(error, capacity, "dialogue name lacks an adjacent addressed-name/reply pair");
+            cJSON_Delete(reply);
+            return -1;
+        }
+    }
     for (int i = 0; i < count; ++i) {
         cJSON *utterance = cJSON_GetArrayItem(raw, first + i);
         cJSON_DeleteItemFromObjectCaseSensitive(utterance, "cleaned");
@@ -284,6 +387,19 @@ int fb_meeting_document_apply(cJSON *document, const char *response, int first, 
             set_name(speaker, field(intro, "name")->valuestring, "introduction_inferred");
             cJSON_AddStringToObject(speaker, "evidence", field(intro, "quote")->valuestring);
             cJSON_AddNumberToObject(speaker, "utterance", field(intro, "utterance")->valueint);
+            cJSON_DeleteItemFromObjectCaseSensitive(document, "report_current");
+            cJSON_AddBoolToObject(document, "report_current", 0);
+        }
+    }
+    cJSON_ArrayForEach(intro, dialogue) {
+        cJSON *speaker = speaker_by_id(document, field(intro, "speaker")->valueint);
+        if (strcmp(field(speaker, "source")->valuestring, "numbered") == 0) {
+            set_name(speaker, field(intro, "name")->valuestring, "dialogue_inferred");
+            cJSON_AddStringToObject(speaker, "evidence", field(intro, "quote")->valuestring);
+            cJSON_AddNumberToObject(speaker, "utterance", field(intro, "utterance")->valueint);
+            cJSON_AddNumberToObject(speaker, "address_utterance", field(intro, "address_utterance")->valueint);
+            cJSON_DeleteItemFromObjectCaseSensitive(document, "report_current");
+            cJSON_AddBoolToObject(document, "report_current", 0);
         }
     }
     cJSON_Delete(reply);
@@ -292,7 +408,12 @@ int fb_meeting_document_apply(cJSON *document, const char *response, int first, 
 
 char *fb_meeting_document_part(const cJSON *document, int first, int count) {
     cJSON *part = cJSON_CreateObject();
-    cJSON_AddItemToObject(part, "speakers", cJSON_Duplicate(field(document, "speakers"), 1));
+    cJSON *speakers = cJSON_Duplicate(field(document, "speakers"), 1);
+    cJSON *speaker;
+    cJSON_ArrayForEach(speaker, speakers) {
+        cJSON_DeleteItemFromObjectCaseSensitive(speaker, "slot");
+    }
+    cJSON_AddItemToObject(part, "speakers", speakers);
     cJSON *utterances = cJSON_AddArrayToObject(part, "utterances");
     for (int i = first; i < first + count; ++i) {
         cJSON *item = cJSON_GetArrayItem(field(document, "utterances"), i);

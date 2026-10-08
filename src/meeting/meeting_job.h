@@ -8,13 +8,17 @@ typedef struct {
     char asr_model[512];
     char diar_model[512];
     char ffmpeg_exe[512];
+    char parakeet_library[512];
 } FbMeetingConfig;
 
 typedef enum {
     FB_MEETING_JOB_TRANSCRIBE,
     FB_MEETING_JOB_PROCESS,
     FB_MEETING_JOB_SAVE,
-    FB_MEETING_JOB_OPEN
+    FB_MEETING_JOB_OPEN,
+    FB_MEETING_JOB_LIVE,
+    FB_MEETING_JOB_TRANSCRIBE_PREVIEW,
+    FB_MEETING_JOB_IDENTIFY
 } FbMeetingOperation;
 
 typedef enum {
@@ -29,6 +33,7 @@ typedef struct {
     char message[256];
     int completed_parts;
     int total_parts;
+    unsigned long long revision;
 } FbMeetingJobStatus;
 
 typedef struct FbMeetingJob FbMeetingJob;
@@ -38,6 +43,8 @@ FbMeetingJob *fb_meeting_job_start(FbMeetingOperation operation, const FbMeeting
                                   const cJSON *document, int llm_port, const char *llm_model);
 void fb_meeting_job_poll(FbMeetingJob *job, FbMeetingJobStatus *status);
 void fb_meeting_job_cancel(FbMeetingJob *job);
+void fb_meeting_job_audio_boundary(FbMeetingJob *job, int finished);
+cJSON *fb_meeting_job_snapshot(FbMeetingJob *job, unsigned long long *revision);
 void fb_meeting_job_wait(FbMeetingJob *job);
 cJSON *fb_meeting_job_take_document(FbMeetingJob *job);
 char *fb_meeting_job_take_notes(FbMeetingJob *job);

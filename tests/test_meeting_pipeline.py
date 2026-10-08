@@ -10,6 +10,7 @@ import unittest
 
 BINARY = pathlib.Path(sys.argv[1]).resolve()
 TOOL = pathlib.Path(sys.argv[2]).resolve()
+UI = pathlib.Path(sys.argv[3]).resolve()
 sys.argv = [sys.argv[0]]
 
 
@@ -30,6 +31,13 @@ class Model(http.server.BaseHTTPRequestHandler):
                 "introductions": [{"speaker": 1, "name": "Alice", "utterance": 1,
                                    "quote": "My name is Alice"}],
             })
+            if "Mario," in part["utterances"][0]["text"]:
+                text = json.dumps({
+                    "utterances": [{"id": u["id"], "text": u["text"]} for u in part["utterances"]],
+                    "introductions": [],
+                    "dialogue_names": [{"speaker": 2, "name": "Mario", "address_utterance": 1,
+                                        "utterance": 2, "quote": part["utterances"][0]["text"]}],
+                })
         else:
             text = "Summary: draft review. Decisions: none established. Action items: Bob, draft, Friday."
         if Model.mode == "invalid":
@@ -78,6 +86,8 @@ class Pipeline(unittest.TestCase):
                      ("--meeting-process", "--llm-port", "123x"), ("--meeting-unknown",),
                      ("--meeting", "--asr")]:
             self.assertNotEqual(self.run_cli(*args).returncode, 0)
+        self.assertNotEqual(self.run_cli("--meeting-record", "--output", "unused.wav",
+                                        "--seconds", 1, "--source", "unknown").returncode, 0)
         self.assertNotEqual(self.transcribe("bad").returncode, 0)
         self.assertFalse((self.root / "transcript.json").exists())
         failed = self.transcribe("failed")
@@ -128,12 +138,21 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(source.read_bytes(), b"source must remain unchanged")
         self.assertEqual(audio.read_bytes(), b"prior audio")
 
+    def test_dynamic_names_in_ui_and_manual_override(self):
+        result = subprocess.run([str(UI), str(TOOL), str(self.server.server_port)],
+                                cwd=self.root, capture_output=True, text=True,
+                                encoding="utf-8", timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(Model.calls)
+        self.assertTrue(all(r["model"] == "exact-fixture-model" for r in Model.calls))
+
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell launch scripts")
     def test_windows_launcher_and_preparation_validation(self):
         scripts = pathlib.Path(__file__).resolve().parents[1] / "scripts"
         assets = self.root / "assets with spaces"
         assets.mkdir()
         for name in ["parakeet-v0.6.1-bin-win-cpu-x64/parakeet-cli.exe",
+                     "parakeet-v0.6.1-lib-win-cpu-x64/parakeet.dll",
                      "tdt-0.6b-v3-q8_0.gguf", "parakeet-bundle-small.gguf"]:
             path = assets / name
             path.parent.mkdir(exist_ok=True)
