@@ -58,9 +58,12 @@ just an informational label, not a switch.
 
 ## Input modes
 
-**Meeting** adds a multiline notepad, Windows system-output recording, local
+**Meeting** adds a multiline notepad, Windows system-output and microphone recording, local
 Parakeet transcription with numbered/anchored speakers, and separate LLM cleanup
-and meeting reports. Audio, notes and outputs are retained locally. Start with
+and meeting reports. Transcription arrives in blocks up to 20 seconds;
+Ctrl+Space pauses/resumes the same session. Sources and speaker names can be
+changed from Meeting commands. Audio, notes and outputs are retained beside the
+executable under `meetings`, or in a folder set with `/meeting folder`. Start with
 `scripts\prepare-meeting.ps1`, then `scripts\start-meeting.ps1`, or enter
 `/meeting` in the app. See [Meeting setup and usage](docs/MEETING.md).
 
