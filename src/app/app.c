@@ -37,7 +37,7 @@ void fb_app_init(FbApp *app, int width, int height) {
 
     fb_backend_mgr_init(&app->backend_mgr);
     fb_config_load(&app->config, app->data_dir);
-    fb_meeting_init(&app->meeting, &app->config, app->data_dir);
+    fb_meeting_init(&app->meeting, &app->config);
     fb_resolve_llama_server(&app->config, app->llama_server_path, sizeof(app->llama_server_path));
     app->transcribe_available =
         (fb_resolve_transcribe_config(&app->config, app->data_dir, &app->transcribe_cfg) == 0);

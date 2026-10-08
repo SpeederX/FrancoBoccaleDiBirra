@@ -12,6 +12,32 @@ int fb_replace_file(const char *source, const char *destination) {
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <string.h>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
+int fb_get_executable_dir(char *out, size_t cap) {
+#ifdef __APPLE__
+    uint32_t size = (uint32_t)cap;
+    if (_NSGetExecutablePath(out, &size) != 0) {
+        return -1;
+    }
+#else
+    ssize_t length = readlink("/proc/self/exe", out, cap - 1);
+    if (length < 0 || (size_t)length >= cap - 1) {
+        return -1;
+    }
+    out[length] = '\0';
+#endif
+    char *last = strrchr(out, '/');
+    if (!last) {
+        return -1;
+    }
+    *last = '\0';
+    return 0;
+}
 
 int fb_ensure_dir(const char *path) {
     if (mkdir(path, 0755) != 0 && errno != EEXIST) return -1;

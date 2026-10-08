@@ -39,6 +39,7 @@ int fb_meeting_launch_config(int argc, char **argv, FbConfig *config) {
             {"--diar", config->meeting_diar_model, sizeof(config->meeting_diar_model)},
             {"--ffmpeg", config->meeting_ffmpeg_exe, sizeof(config->meeting_ffmpeg_exe)},
             {"--llm-model", config->meeting_llm_model, sizeof(config->meeting_llm_model)}
+            ,{"--meeting-folder", config->meeting_folder, sizeof(config->meeting_folder)}
         };
         int found = 0;
         for (size_t n = 0; n < sizeof(settings) / sizeof(settings[0]); ++n) {

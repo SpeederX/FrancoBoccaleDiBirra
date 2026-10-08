@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     if (meeting_launch) {
         fb_meeting_launch_config(argc, argv, &app->config);
         fb_meeting_shutdown(&app->meeting);
-        fb_meeting_init(&app->meeting, &app->config, app->data_dir);
+        fb_meeting_init(&app->meeting, &app->config);
         app->input_mode = FB_INPUT_MODE_MEETING;
         fb_meeting_command(&app->meeting, "help");
     }

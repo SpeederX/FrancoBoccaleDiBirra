@@ -12,6 +12,7 @@ int fb_get_data_dir(char *out, size_t cap);
 
 /* %USERPROFILE% on Windows, $HOME on POSIX. Returns 0 on success. */
 int fb_get_home_dir(char *out, size_t cap);
+int fb_get_executable_dir(char *out, size_t cap);
 
 /* Creates a directory if it doesn't already exist. Returns 0 on success
    (including "already existed"). */

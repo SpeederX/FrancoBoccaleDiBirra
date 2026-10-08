@@ -2,6 +2,20 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
+
+int fb_get_executable_dir(char *out, size_t cap) {
+    DWORD length = GetModuleFileNameA(NULL, out, (DWORD)cap);
+    if (!length || length >= cap) {
+        return -1;
+    }
+    char *last = strrchr(out, '\\');
+    if (!last) {
+        return -1;
+    }
+    *last = '\0';
+    return 0;
+}
 
 int fb_replace_file(const char *source, const char *destination) {
     return MoveFileExA(source, destination, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)

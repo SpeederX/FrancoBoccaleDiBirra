@@ -38,7 +38,7 @@ typedef struct {
     int save_failed;
 } FbMeeting;
 
-void fb_meeting_init(FbMeeting *meeting, FbConfig *config, const char *data_dir);
+void fb_meeting_init(FbMeeting *meeting, FbConfig *config);
 int fb_meeting_command(FbMeeting *meeting, const char *command);
 int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event);
 void fb_meeting_tick(FbMeeting *meeting);

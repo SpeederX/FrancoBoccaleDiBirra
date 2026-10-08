@@ -47,6 +47,7 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         {"meeting_diar_model", cfg->meeting_diar_model, sizeof(cfg->meeting_diar_model)},
         {"meeting_ffmpeg_exe", cfg->meeting_ffmpeg_exe, sizeof(cfg->meeting_ffmpeg_exe)},
         {"meeting_llm_model", cfg->meeting_llm_model, sizeof(cfg->meeting_llm_model)},
+        {"meeting_folder", cfg->meeting_folder, sizeof(cfg->meeting_folder)},
     };
     for (size_t i = 0; i < sizeof(str_fields) / sizeof(str_fields[0]); ++i) {
         cJSON *v = cJSON_GetObjectItemCaseSensitive(root, str_fields[i].key);
@@ -106,6 +107,7 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "meeting_diar_model", cfg->meeting_diar_model);
     cJSON_AddStringToObject(root, "meeting_ffmpeg_exe", cfg->meeting_ffmpeg_exe);
     cJSON_AddStringToObject(root, "meeting_llm_model", cfg->meeting_llm_model);
+    cJSON_AddStringToObject(root, "meeting_folder", cfg->meeting_folder);
     cJSON_AddNumberToObject(root, "meeting_llm_port", cfg->meeting_llm_port);
     cJSON_AddNumberToObject(root, "diary_page_close_chars", cfg->diary_page_close_chars);
     cJSON_AddNumberToObject(root, "diary_checkpoint_chars", cfg->diary_checkpoint_chars);

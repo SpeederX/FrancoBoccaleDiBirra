@@ -22,11 +22,14 @@ static void refresh_tools(FbMeeting *meeting) {
                  ? cfg->meeting_ffmpeg_exe : "ffmpeg");
 }
 
-void fb_meeting_init(FbMeeting *meeting, FbConfig *config, const char *data_dir) {
+void fb_meeting_init(FbMeeting *meeting, FbConfig *config) {
     memset(meeting, 0, sizeof(*meeting));
     meeting->config = config;
-    if (data_dir[0]) {
-        snprintf(meeting->root, sizeof(meeting->root), "%s/meetings", data_dir);
+    char executable_dir[512];
+    if (config->meeting_folder[0]) {
+        snprintf(meeting->root, sizeof(meeting->root), "%s", config->meeting_folder);
+    } else if (fb_get_executable_dir(executable_dir, sizeof(executable_dir)) == 0) {
+        snprintf(meeting->root, sizeof(meeting->root), "%s/meetings", executable_dir);
     }
     fb_notepad_init(&meeting->notes);
     fb_textview_clear(&meeting->output);
@@ -120,6 +123,7 @@ static void help(FbMeeting *meeting) {
         "PgUp/PgDn scroll output. Tab changes mode; recording continues.\n\n"
         "/meeting new                 create a retained local meeting\n"
         "/meeting list                show meeting folders\n"
+        "/meeting folder [path]       show/set storage for NEW meetings\n"
         "/meeting open <folder path>  reopen saved notes and transcript\n"
         "/meeting setup parakeet <executable path>\n"
         "/meeting setup asr <multilingual GGUF path>\n"
@@ -258,6 +262,21 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
     }
     if (strcmp(verb, "new") == 0 && !*arguments) {
         return new_meeting(meeting);
+    }
+    if (strcmp(verb, "folder") == 0) {
+        if (!*path) {
+            view_text(meeting, meeting->root);
+            snprintf(meeting->status, sizeof(meeting->status), "meeting folder; default is beside the executable, under meetings");
+            return 0;
+        }
+        if (strlen(arguments) >= sizeof(meeting->config->meeting_folder) || fb_ensure_dir(path) != 0) {
+            snprintf(meeting->status, sizeof(meeting->status), "could not use that folder; choose an existing parent and a path under 512 bytes");
+            return -1;
+        }
+        snprintf(meeting->config->meeting_folder, sizeof(meeting->config->meeting_folder), "%s", path);
+        snprintf(meeting->root, sizeof(meeting->root), "%s", path);
+        snprintf(meeting->status, sizeof(meeting->status), "folder saved for new meetings; current and previous meetings stay in their folders");
+        return 1;
     }
     if (strcmp(verb, "setup") == 0) {
         size_t key_length = strcspn(arguments, " \t");
