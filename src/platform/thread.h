@@ -30,4 +30,10 @@ FbThread *fb_thread_start(FbThreadFunc fn, void *arg);
    successfully-started thread; never call twice on the same handle. */
 void fb_thread_join(FbThread *thread);
 
+typedef struct FbMutex FbMutex;
+FbMutex *fb_mutex_create(void);
+void fb_mutex_lock(FbMutex *mutex);
+void fb_mutex_unlock(FbMutex *mutex);
+void fb_mutex_free(FbMutex *mutex);
+
 #endif /* FB_THREAD_H */

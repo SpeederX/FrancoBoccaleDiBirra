@@ -44,3 +44,31 @@ void fb_thread_join(FbThread *thread) {
     pthread_join(thread->handle, NULL);
     free(thread);
 }
+
+struct FbMutex {
+    pthread_mutex_t handle;
+};
+
+FbMutex *fb_mutex_create(void) {
+    FbMutex *mutex = malloc(sizeof(*mutex));
+    if (mutex && pthread_mutex_init(&mutex->handle, NULL) != 0) {
+        free(mutex);
+        return NULL;
+    }
+    return mutex;
+}
+
+void fb_mutex_lock(FbMutex *mutex) {
+    pthread_mutex_lock(&mutex->handle);
+}
+
+void fb_mutex_unlock(FbMutex *mutex) {
+    pthread_mutex_unlock(&mutex->handle);
+}
+
+void fb_mutex_free(FbMutex *mutex) {
+    if (mutex) {
+        pthread_mutex_destroy(&mutex->handle);
+        free(mutex);
+    }
+}

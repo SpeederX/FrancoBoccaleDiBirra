@@ -12,6 +12,11 @@ endfunction()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
 fb_add_test(wav_writer ${CMAKE_SOURCE_DIR}/src/audio/wav_writer.c)
+fb_add_test(wav_stream ${CMAKE_SOURCE_DIR}/src/audio/wav_stream.c)
+fb_add_test(notepad ${CMAKE_SOURCE_DIR}/src/tui/widget_notepad.c
+    ${CMAKE_SOURCE_DIR}/src/tui/layout.c ${CMAKE_SOURCE_DIR}/src/util/utf8.c)
+fb_add_test(meeting_document ${CMAKE_SOURCE_DIR}/src/meeting/meeting_document.c)
+target_link_libraries(test_meeting_document PRIVATE cjson)
 
 # calibr_results/calibr_log_tail render into an FbTextView, whose render
 # path (unused by this test, but still linked -- object files link as a

@@ -1,4 +1,3 @@
-#define MA_IMPLEMENTATION
 #include "miniaudio.h"
 
 #include "audio/mic_capture.h"

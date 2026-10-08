@@ -4,12 +4,18 @@
 
 #include "app/app.h"
 #include "app/sweep.h"
+#include "meeting/meeting_cli.h"
 #include "net/sockets_compat.h"
 #include "platform/platform.h"
 #include "tui/screen.h"
 
 int main(int argc, char **argv) {
     fb_sock_platform_init();
+    if (argc > 1 && strncmp(argv[1], "--meeting-", 10) == 0) {
+        int rc = fb_meeting_cli(argc, argv);
+        fb_sock_platform_cleanup();
+        return rc;
+    }
 
     /* Dev-only batch mode -- see sweep.h. Never touches the TUI/screen at
        all; runs, writes its report, exits. */

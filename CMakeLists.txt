@@ -39,9 +39,12 @@ add_executable(fbdb
     src/app/app.c
     src/app/command_dispatch.c
     src/app/sweep.c
+    src/meeting/meeting_cli.c
+    src/meeting/meeting_document.c
     src/download/download_job.c
     src/tui/layout.c
     src/tui/widget_cmdline.c
+    src/tui/widget_notepad.c
     src/tui/fx_sphere.c
     src/tui/fx_waveform.c
     src/tui/fx_pencil.c
@@ -55,6 +58,8 @@ add_executable(fbdb
     src/audio/ring_buffer.c
     src/audio/mic_capture.c
     src/audio/wav_writer.c
+    src/audio/wav_stream.c
+    src/audio/system_capture.c
     src/net/http_client.c
     src/net/llama_client.c
     src/backend/backend_mgr.c

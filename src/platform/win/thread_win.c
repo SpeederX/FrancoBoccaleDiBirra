@@ -49,3 +49,30 @@ void fb_thread_join(FbThread *thread) {
     CloseHandle(thread->handle);
     free(thread);
 }
+
+struct FbMutex {
+    CRITICAL_SECTION section;
+};
+
+FbMutex *fb_mutex_create(void) {
+    FbMutex *mutex = malloc(sizeof(*mutex));
+    if (mutex) {
+        InitializeCriticalSection(&mutex->section);
+    }
+    return mutex;
+}
+
+void fb_mutex_lock(FbMutex *mutex) {
+    EnterCriticalSection(&mutex->section);
+}
+
+void fb_mutex_unlock(FbMutex *mutex) {
+    LeaveCriticalSection(&mutex->section);
+}
+
+void fb_mutex_free(FbMutex *mutex) {
+    if (mutex) {
+        DeleteCriticalSection(&mutex->section);
+        free(mutex);
+    }
+}
