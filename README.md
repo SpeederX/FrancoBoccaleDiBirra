@@ -58,9 +58,15 @@ just an informational label, not a switch.
 
 ## Input modes
 
-Four modes (command, scratchpad, diary, project), each with its own color,
+**Meeting** adds a multiline notepad, Windows system-output recording, local
+Parakeet transcription with numbered/anchored speakers, and separate LLM cleanup
+and meeting reports. Audio, notes and outputs are retained locally. Start with
+`scripts\prepare-meeting.ps1`, then `scripts\start-meeting.ps1`, or enter
+`/meeting` in the app. See [Meeting setup and usage](docs/MEETING.md).
+
+Command, scratchpad, diary and the project scaffold each have their own color,
 its own centerpiece effect where the sphere normally sits, and its own idea
-of "memory." All four are selectable — project (folder-scoped context) is
+of "memory." Tab cycles command, scratchpad, diary and meeting. Project (folder-scoped context) is
 an intentionally empty box right now: it has its own color/effect/panel but
 no feature behind it yet (see `src/project/project.h`). A line with a
 leading `/` is always a command, in every mode. What happens to free text

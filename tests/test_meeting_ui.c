@@ -110,6 +110,7 @@ int main(int argc, char **argv) {
     assert(fb_meeting_command(&app->meeting, "name 1 Alice") == 0);
     idle(&app->meeting);
     assert(fb_meeting_command(&app->meeting, "name 99 Nobody") == -1);
+    assert(fb_meeting_command(&app->meeting, "name 2Carol") == -1);
     assert(fb_meeting_command(&app->meeting, "model 8080junk x") == -1);
     assert(fb_meeting_command(&app->meeting, "process extra") == -1);
     assert(fb_meeting_command(&app->meeting, "setup unknown x") == -1);

@@ -75,7 +75,8 @@ class Pipeline(unittest.TestCase):
 
     def test_bad_arguments_and_corrupt_tool_output(self):
         for args in [("--meeting-transcribe",), ("--meeting-record", "--seconds", "zero"),
-                     ("--meeting-process", "--llm-port", "123x"), ("--meeting-unknown",)]:
+                     ("--meeting-process", "--llm-port", "123x"), ("--meeting-unknown",),
+                     ("--meeting", "--asr")]:
             self.assertNotEqual(self.run_cli(*args).returncode, 0)
         self.assertNotEqual(self.transcribe("bad").returncode, 0)
         self.assertFalse((self.root / "transcript.json").exists())
@@ -126,6 +127,37 @@ class Pipeline(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(source.read_bytes(), b"source must remain unchanged")
         self.assertEqual(audio.read_bytes(), b"prior audio")
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell launch scripts")
+    def test_windows_launcher_and_preparation_validation(self):
+        scripts = pathlib.Path(__file__).resolve().parents[1] / "scripts"
+        assets = self.root / "assets with spaces"
+        assets.mkdir()
+        for name in ["parakeet-v0.6.1-bin-win-cpu-x64/parakeet-cli.exe",
+                     "tdt-0.6b-v3-q8_0.gguf", "parakeet-bundle-small.gguf"]:
+            path = assets / name
+            path.parent.mkdir(exist_ok=True)
+            path.touch()
+
+        def run_script(name, *args):
+            return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                                   "-File", str(scripts / name), *map(str, args)],
+                                  capture_output=True, text=True, timeout=15)
+
+        common = ["-Executable", BINARY, "-AssetsDirectory", assets, "-PrintCommand"]
+        valid = run_script("start-meeting.ps1", *common, "-LlmPort", 18089, "-LlmModel", "exact-model")
+        self.assertEqual(valid.returncode, 0, valid.stderr)
+        command = json.loads(valid.stdout)
+        self.assertEqual(command[1], "--meeting")
+        self.assertIn(str(assets / "tdt-0.6b-v3-q8_0.gguf"), command)
+        self.assertEqual(command[-1], "exact-model")
+        missing_model = run_script("start-meeting.ps1", *common, "-LlmPort", 18089)
+        self.assertNotEqual(missing_model.returncode, 0)
+        self.assertIn("Provide both", missing_model.stderr)
+        (assets / "parakeet-win-cpu.zip").write_bytes(b"wrong archive")
+        bad_hash = run_script("prepare-meeting.ps1", "-AssetsDirectory", assets)
+        self.assertNotEqual(bad_hash.returncode, 0)
+        self.assertIn("Hash mismatch", bad_hash.stderr)
 
 
 unittest.main()

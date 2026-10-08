@@ -350,8 +350,12 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
     if (strcmp(verb, "name") == 0 && meeting->document && !meeting->job && !meeting->save_job) {
         char *end;
         long number = strtol(arguments, &end, 10);
-        if (number > 0 && number <= 2147483647L &&
-            fb_meeting_document_name(meeting->document, (int)number, skip_spaces(end),
+        if (end == arguments || (*end != ' ' && *end != '\t') ||
+            number <= 0 || number > 2147483647L) {
+            snprintf(meeting->status, sizeof(meeting->status), "usage: /meeting name <speaker number> <name>");
+            return -1;
+        }
+        if (fb_meeting_document_name(meeting->document, (int)number, skip_spaces(end),
                                       meeting->status, sizeof(meeting->status)) == 0) {
             meeting->document_dirty = 1;
             refresh_output(meeting);
