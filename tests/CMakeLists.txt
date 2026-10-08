@@ -4,11 +4,22 @@ function(fb_add_test name)
     target_link_libraries(test_${name} PRIVATE fb_warnings)
     if (MSVC)
         target_compile_definitions(test_${name} PRIVATE _CRT_SECURE_NO_WARNINGS)
+        target_compile_options(test_${name} PRIVATE /UNDEBUG)
     else()
+        target_compile_options(test_${name} PRIVATE -UNDEBUG)
         target_link_libraries(test_${name} PRIVATE m)
     endif()
     add_test(NAME ${name} COMMAND test_${name})
 endfunction()
+
+add_executable(meeting_tool_fixture meeting_tool_fixture.c)
+target_include_directories(meeting_tool_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src)
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if (Python3_FOUND)
+    add_test(NAME meeting_pipeline COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_pipeline.py
+        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture>)
+endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
 fb_add_test(wav_writer ${CMAKE_SOURCE_DIR}/src/audio/wav_writer.c)
@@ -34,6 +45,20 @@ else()
         ${CMAKE_SOURCE_DIR}/src/platform/posix/paths_posix.c
         ${CMAKE_SOURCE_DIR}/src/platform/posix/dirlist_posix.c
     )
+endif()
+
+get_target_property(fb_meeting_test_sources fbdb SOURCES)
+list(FILTER fb_meeting_test_sources EXCLUDE REGEX "src/main.c|console_win.c|backend_termbox2.c")
+list(TRANSFORM fb_meeting_test_sources PREPEND "${CMAKE_SOURCE_DIR}/")
+fb_add_test(meeting_ui ${fb_meeting_test_sources})
+get_target_property(fb_meeting_definitions fbdb COMPILE_DEFINITIONS)
+target_compile_definitions(test_meeting_ui PRIVATE ${fb_meeting_definitions})
+target_link_libraries(test_meeting_ui PRIVATE miniaudio cjson)
+add_test(NAME meeting_lifecycle COMMAND test_meeting_ui $<TARGET_FILE:meeting_tool_fixture>)
+if (WIN32)
+    target_link_libraries(test_meeting_ui PRIVATE ws2_32 ole32 shell32)
+else()
+    target_link_libraries(test_meeting_ui PRIVATE pthread)
 endif()
 
 fb_add_test(calibr_results

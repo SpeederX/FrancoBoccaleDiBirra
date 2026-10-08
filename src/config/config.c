@@ -42,6 +42,11 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         {"orukeet_dir", cfg->orukeet_dir, sizeof(cfg->orukeet_dir)},
         {"qwen_model", cfg->qwen_model, sizeof(cfg->qwen_model)},
         {"calibr_root", cfg->calibr_root, sizeof(cfg->calibr_root)},
+        {"meeting_parakeet_exe", cfg->meeting_parakeet_exe, sizeof(cfg->meeting_parakeet_exe)},
+        {"meeting_asr_model", cfg->meeting_asr_model, sizeof(cfg->meeting_asr_model)},
+        {"meeting_diar_model", cfg->meeting_diar_model, sizeof(cfg->meeting_diar_model)},
+        {"meeting_ffmpeg_exe", cfg->meeting_ffmpeg_exe, sizeof(cfg->meeting_ffmpeg_exe)},
+        {"meeting_llm_model", cfg->meeting_llm_model, sizeof(cfg->meeting_llm_model)},
     };
     for (size_t i = 0; i < sizeof(str_fields) / sizeof(str_fields[0]); ++i) {
         cJSON *v = cJSON_GetObjectItemCaseSensitive(root, str_fields[i].key);
@@ -57,6 +62,7 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         {"diary_page_close_chars", &cfg->diary_page_close_chars},
         {"diary_checkpoint_chars", &cfg->diary_checkpoint_chars},
         {"diary_idle_close_minutes", &cfg->diary_idle_close_minutes},
+        {"meeting_llm_port", &cfg->meeting_llm_port},
     };
     for (size_t i = 0; i < sizeof(int_fields) / sizeof(int_fields[0]); ++i) {
         cJSON *v = cJSON_GetObjectItemCaseSensitive(root, int_fields[i].key);
@@ -95,6 +101,12 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "qwen_model", cfg->qwen_model);
     cJSON_AddNumberToObject(root, "qwen_port", cfg->qwen_port);
     cJSON_AddStringToObject(root, "calibr_root", cfg->calibr_root);
+    cJSON_AddStringToObject(root, "meeting_parakeet_exe", cfg->meeting_parakeet_exe);
+    cJSON_AddStringToObject(root, "meeting_asr_model", cfg->meeting_asr_model);
+    cJSON_AddStringToObject(root, "meeting_diar_model", cfg->meeting_diar_model);
+    cJSON_AddStringToObject(root, "meeting_ffmpeg_exe", cfg->meeting_ffmpeg_exe);
+    cJSON_AddStringToObject(root, "meeting_llm_model", cfg->meeting_llm_model);
+    cJSON_AddNumberToObject(root, "meeting_llm_port", cfg->meeting_llm_port);
     cJSON_AddNumberToObject(root, "diary_page_close_chars", cfg->diary_page_close_chars);
     cJSON_AddNumberToObject(root, "diary_checkpoint_chars", cfg->diary_checkpoint_chars);
     cJSON_AddNumberToObject(root, "diary_idle_close_minutes", cfg->diary_idle_close_minutes);

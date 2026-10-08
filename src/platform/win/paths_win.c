@@ -3,6 +3,11 @@
 #include <windows.h>
 #include <stdio.h>
 
+int fb_replace_file(const char *source, const char *destination) {
+    return MoveFileExA(source, destination, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)
+               ? 0 : -1;
+}
+
 int fb_ensure_dir(const char *path) {
     if (!CreateDirectoryA(path, NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
         return -1;

@@ -13,6 +13,7 @@
 #include "tui/widget_file_picker.h"
 #include "tui/widget_textview.h"
 #include "util/version.h"
+#include "meeting/meeting.h"
 
 typedef enum {
     FB_VIEW_DASHBOARD = 0,
@@ -20,13 +21,12 @@ typedef enum {
     FB_VIEW_LOGS
 } FbAppView;
 
-/* Three of the planned four modes are wired up so far (command,
-   scratchpad, diary) -- project (folder-scoped context) is a real,
-   separate feature still being built, not yet selectable here. */
+/* Project remains a separate, not yet selectable feature on main. */
 typedef enum {
     FB_INPUT_MODE_COMMAND = 0, /* free text -> Qwen intent classify -> a command */
     FB_INPUT_MODE_SCRATCHPAD,  /* free text -> sent directly to the loaded model, bounded memory */
-    FB_INPUT_MODE_DIARY        /* free text -> loaded model, plus fed into diary/diary.h's memory pipeline */
+    FB_INPUT_MODE_DIARY,       /* free text -> loaded model, plus fed into diary/diary.h's memory pipeline */
+    FB_INPUT_MODE_MEETING
 } FbInputMode;
 
 #define FB_WAVE_HISTORY 256
@@ -70,6 +70,7 @@ typedef struct {
     FbTextView history_view; /* command mode: "You: ..." / "Qwen: ..." */
 
     FbInputMode input_mode; /* toggled with Tab outside /load and /unload completion */
+    FbMeeting meeting;
     FbChatJob chat_job;
     FbTextView scratchpad_history_view;
     /* Name of the model a chat request was sent to, cached at request time

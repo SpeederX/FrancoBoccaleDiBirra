@@ -37,6 +37,7 @@ void fb_app_init(FbApp *app, int width, int height) {
 
     fb_backend_mgr_init(&app->backend_mgr);
     fb_config_load(&app->config, app->data_dir);
+    fb_meeting_init(&app->meeting, &app->config, app->data_dir);
     fb_resolve_llama_server(&app->config, app->llama_server_path, sizeof(app->llama_server_path));
     app->transcribe_available =
         (fb_resolve_transcribe_config(&app->config, app->data_dir, &app->transcribe_cfg) == 0);
@@ -434,6 +435,7 @@ static void tick_download(FbApp *app) {
 }
 
 void fb_app_tick(FbApp *app) {
+    fb_meeting_tick(&app->meeting);
     fb_backend_mgr_tick(&app->backend_mgr);
     tick_download(app);
 
@@ -505,6 +507,7 @@ void fb_app_tick(FbApp *app) {
 }
 
 void fb_app_shutdown(FbApp *app) {
+    fb_meeting_shutdown(&app->meeting);
     fb_download_job_shutdown(&app->download_job);
     fb_chat_shutdown(&app->chat_job); /* joins any in-flight request before app is freed */
     fb_chat_shutdown(&app->diary_chat_job);
@@ -591,6 +594,11 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
         if (ev->key == FB_KEY_CTRL_C) {
             app->running = 0;
             return 1;
+        }
+
+        if (app->input_mode == FB_INPUT_MODE_MEETING && ev->key == FB_KEY_F1) {
+            fb_meeting_command(&app->meeting, "help");
+            return 0;
         }
 
         if (app->transcribe_confirm_pending) {
@@ -779,6 +787,10 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             return 0;
         }
         if (ev->key == FB_KEY_F7) {
+            if (app->input_mode == FB_INPUT_MODE_MEETING) {
+                fb_meeting_command(&app->meeting, "new");
+                return 0;
+            }
             FbCommand cmd;
             memset(&cmd, 0, sizeof(cmd));
             cmd.kind = FB_CMD_NEW_PAGE;
@@ -788,6 +800,13 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
         if (ev->key == FB_KEY_F10) {
             app->running = 0;
             return 1;
+        }
+
+        if (app->input_mode == FB_INPUT_MODE_MEETING && app->view == FB_VIEW_DASHBOARD &&
+            (ev->key == FB_KEY_F8 || ev->key == FB_KEY_F9 ||
+             ev->key == FB_KEY_PAGE_UP || ev->key == FB_KEY_PAGE_DOWN)) {
+            fb_meeting_handle_event(&app->meeting, ev);
+            return 0;
         }
 
         if (app->view == FB_VIEW_DASHBOARD &&
@@ -828,6 +847,11 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             snprintf(app->last_submitted, FB_CMDLINE_MAX,
                      "this page was from a previous session -- reopen it into the live "
                      "conversation? (y/N)");
+            return 0;
+        }
+
+        if (ev->key == FB_KEY_CTRL_SPACE && app->input_mode == FB_INPUT_MODE_MEETING) {
+            fb_meeting_handle_event(&app->meeting, ev);
             return 0;
         }
 
@@ -891,7 +915,8 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             } else {
                 app->input_mode = (app->input_mode == FB_INPUT_MODE_COMMAND) ? FB_INPUT_MODE_SCRATCHPAD
                                    : (app->input_mode == FB_INPUT_MODE_SCRATCHPAD) ? FB_INPUT_MODE_DIARY
-                                                                                    : FB_INPUT_MODE_COMMAND;
+                                   : (app->input_mode == FB_INPUT_MODE_DIARY) ? FB_INPUT_MODE_MEETING
+                                                                           : FB_INPUT_MODE_COMMAND;
                 /* Scratchpad is meant to be a clean slate each time you
                    step into it, not a memory that quietly survives being
                    tabbed away from and back -- diary is the opposite by
@@ -904,14 +929,46 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                                              ? "scratchpad -- free text goes straight to the loaded model"
                                          : app->input_mode == FB_INPUT_MODE_DIARY
                                              ? "diary -- free text goes to the loaded model and is remembered"
+                                         : app->input_mode == FB_INPUT_MODE_MEETING
+                                             ? "meeting -- type notes; F8 for commands and setup"
                                              : "command -- free text goes through Qwen intent classify";
                 snprintf(app->last_submitted, FB_CMDLINE_MAX, "mode: %s", mode_desc);
             }
             return 0;
         }
 
+        if (app->input_mode == FB_INPUT_MODE_MEETING && app->view == FB_VIEW_DASHBOARD &&
+            fb_meeting_handle_event(&app->meeting, ev)) {
+            return 0;
+        }
+
         FbCmdlineResult r = fb_cmdline_handle_event(&app->cmdline, ev);
         if (r == FB_CMDLINE_SUBMIT) {
+            if (app->input_mode == FB_INPUT_MODE_MEETING && app->cmdline.buf[0] != '/') {
+                snprintf(app->meeting.status, sizeof(app->meeting.status), "F8 switches to editable notes; commands start with /");
+                fb_cmdline_clear(&app->cmdline);
+                return 0;
+            }
+            if (strcmp(app->cmdline.buf, "/meeting") == 0 ||
+                strncmp(app->cmdline.buf, "/meeting ", 9) == 0) {
+                app->input_mode = FB_INPUT_MODE_MEETING;
+                app->view = FB_VIEW_DASHBOARD;
+                if (strncmp(app->cmdline.buf + 8, " process", 8) == 0 &&
+                    app->meeting.llm_port == 0) {
+                    FbBackendInstance *target = find_chat_target(app);
+                    if (target && target->state == FB_BACKEND_UP) {
+                        app->meeting.llm_port = target->port;
+                        snprintf(app->meeting.llm_model, sizeof(app->meeting.llm_model), "%s", target->name);
+                    }
+                }
+                int changed = fb_meeting_command(&app->meeting, app->cmdline.buf + 8);
+                if (changed == 1 && fb_config_save(&app->config, app->data_dir) != 0) {
+                    snprintf(app->meeting.status, sizeof(app->meeting.status), "setting applied but config.json could not be saved");
+                }
+                snprintf(app->last_submitted, FB_CMDLINE_MAX, "%s", app->meeting.status);
+                fb_cmdline_clear(&app->cmdline);
+                return 0;
+            }
             FbCommand cmd = fb_command_parse(app->cmdline.buf);
 
             /* Free text (not even attempting "/"-syntax) with nowhere else
@@ -1051,6 +1108,11 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
 void fb_app_render(FbApp *app) {
     FbLayout layout;
     fb_layout_compute(app->width, app->height, &layout);
+    if (app->input_mode == FB_INPUT_MODE_MEETING && app->view == FB_VIEW_DASHBOARD &&
+        !app->file_picker.active) {
+        fb_meeting_render(&app->meeting, layout, &app->cmdline);
+        return;
+    }
 
     /* The active mode's color, used throughout this function for anything
        that's "part of the current mode's chrome" (title, F-key legend,

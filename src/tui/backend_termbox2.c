@@ -63,6 +63,8 @@ static FbKeyCode map_key(const struct tb_event *ev, uint32_t *out_ch) {
     if (ev->key == TB_KEY_F5) return FB_KEY_F5;
     if (ev->key == TB_KEY_F6) return FB_KEY_F6;
     if (ev->key == TB_KEY_F7) return FB_KEY_F7;
+    if (ev->key == TB_KEY_F8) return FB_KEY_F8;
+    if (ev->key == TB_KEY_F9) return FB_KEY_F9;
     if (ev->key == TB_KEY_F10) return FB_KEY_F10;
     if (ev->key == TB_KEY_PGUP) return FB_KEY_PAGE_UP;
     if (ev->key == TB_KEY_PGDN) return FB_KEY_PAGE_DOWN;

@@ -5,6 +5,8 @@
 #include "cJSON.h"
 
 cJSON *fb_meeting_document_parse(const char *scene_jsonl, char *error, size_t capacity);
+int fb_meeting_document_valid(const cJSON *document);
+int fb_meeting_document_preserve_names(cJSON *document, const cJSON *previous);
 int fb_meeting_document_name(cJSON *document, int speaker, const char *name,
                              char *error, size_t capacity);
 int fb_meeting_document_apply(cJSON *document, const char *response, int first, int count,

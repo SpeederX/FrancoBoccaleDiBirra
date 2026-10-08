@@ -16,5 +16,6 @@ int fb_get_home_dir(char *out, size_t cap);
 /* Creates a directory if it doesn't already exist. Returns 0 on success
    (including "already existed"). */
 int fb_ensure_dir(const char *path);
+int fb_replace_file(const char *source, const char *destination);
 
 #endif /* FB_PATHS_H */

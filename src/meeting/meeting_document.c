@@ -136,10 +136,78 @@ static int valid_name(const char *name) {
     return 1;
 }
 
+int fb_meeting_document_valid(const cJSON *document) {
+    cJSON *speakers = field(document, "speakers");
+    cJSON *utterances = field(document, "utterances");
+    if (!cJSON_IsObject(document) || !cJSON_IsArray(speakers) || !cJSON_IsArray(utterances)) {
+        return 0;
+    }
+    int expected = 1;
+    cJSON *item;
+    cJSON_ArrayForEach(item, speakers) {
+        cJSON *source = field(item, "source");
+        cJSON *name = field(item, "name");
+        if (!integer(field(item, "id"), 1) || field(item, "id")->valueint != expected++ ||
+            !integer(field(item, "slot"), 0) || !cJSON_IsString(source) ||
+            (strcmp(source->valuestring, "numbered") != 0 &&
+             strcmp(source->valuestring, "manual") != 0 &&
+             strcmp(source->valuestring, "introduction_inferred") != 0) ||
+            (name && (!cJSON_IsString(name) || !valid_name(name->valuestring)))) {
+            return 0;
+        }
+    }
+    expected = 1;
+    cJSON_ArrayForEach(item, utterances) {
+        cJSON *speaker = field(item, "speaker");
+        cJSON *start = field(item, "start");
+        cJSON *end = field(item, "end");
+        cJSON *cleaned = field(item, "cleaned");
+        if (!integer(field(item, "id"), 1) || field(item, "id")->valueint != expected++ ||
+            !integer(speaker, 0) || speaker->valueint > cJSON_GetArraySize(speakers) ||
+            !cJSON_IsString(field(item, "text")) ||
+            !cJSON_IsNumber(start) || !cJSON_IsNumber(end) ||
+            !isfinite(start->valuedouble) || !isfinite(end->valuedouble) ||
+            start->valuedouble < 0 || end->valuedouble < start->valuedouble ||
+            (cleaned && !cJSON_IsString(cleaned))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void set_name(cJSON *speaker, const char *name, const char *source) {
     cJSON_DeleteItemFromObjectCaseSensitive(speaker, "name");
     cJSON_AddStringToObject(speaker, "name", name);
     cJSON_ReplaceItemInObjectCaseSensitive(speaker, "source", cJSON_CreateString(source));
+}
+
+int fb_meeting_document_preserve_names(cJSON *document, const cJSON *previous) {
+    cJSON *current = field(document, "utterances");
+    cJSON *old = field(previous, "utterances");
+    if (!fb_meeting_document_valid(previous) ||
+        cJSON_GetArraySize(current) != cJSON_GetArraySize(old) ||
+        cJSON_GetArraySize(field(document, "speakers")) != cJSON_GetArraySize(field(previous, "speakers"))) {
+        return 0;
+    }
+    const char *keys[] = {"id", "speaker", "start", "end", "text"};
+    for (int i = 0; i < cJSON_GetArraySize(current); ++i) {
+        for (size_t k = 0; k < sizeof(keys) / sizeof(keys[0]); ++k) {
+            if (!cJSON_Compare(field(cJSON_GetArrayItem(current, i), keys[k]),
+                               field(cJSON_GetArrayItem(old, i), keys[k]), 1)) {
+                return 0;
+            }
+        }
+    }
+    cJSON *speakers = field(document, "speakers");
+    for (int i = 0; i < cJSON_GetArraySize(speakers); ++i) {
+        cJSON *speaker = cJSON_GetArrayItem(speakers, i);
+        cJSON *prior = cJSON_GetArrayItem(field(previous, "speakers"), i);
+        if (!cJSON_Compare(field(speaker, "slot"), field(prior, "slot"), 1)) {
+            return 0;
+        }
+    }
+    cJSON_ReplaceItemInObjectCaseSensitive(document, "speakers", cJSON_Duplicate(field(previous, "speakers"), 1));
+    return 1;
 }
 
 int fb_meeting_document_name(cJSON *document, int id, const char *name,
@@ -150,6 +218,8 @@ int fb_meeting_document_name(cJSON *document, int id, const char *name,
         return -1;
     }
     set_name(speaker, name, "manual");
+    cJSON_DeleteItemFromObjectCaseSensitive(document, "report_current");
+    cJSON_AddBoolToObject(document, "report_current", 0);
     cJSON_DeleteItemFromObjectCaseSensitive(speaker, "evidence");
     cJSON_DeleteItemFromObjectCaseSensitive(speaker, "utterance");
     return 0;
@@ -262,12 +332,13 @@ char *fb_meeting_document_text(const cJSON *document, int cleaned) {
         snprintf(numbered, sizeof(numbered), "Speaker %d", id);
         const char *label = name ? name->valuestring : id ? numbered : "Unattributed";
         cJSON *text = cleaned ? field(utterance, "cleaned") : NULL;
+        const char *pending = cleaned && !text ? "[ASR pending LLM] " : "";
         if (!text) {
             text = field(utterance, "text");
         }
-        int written = snprintf(result + offset, length - offset, "[%.2f - %.2f] %s: %s\n",
+        int written = snprintf(result + offset, length - offset, "[%.2f - %.2f] %s: %s%s\n",
                                field(utterance, "start")->valuedouble,
-                               field(utterance, "end")->valuedouble, label, text->valuestring);
+                               field(utterance, "end")->valuedouble, label, pending, text->valuestring);
         if (written > 0) {
             offset += (size_t)written;
         }

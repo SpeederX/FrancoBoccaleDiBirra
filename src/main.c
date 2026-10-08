@@ -11,6 +11,12 @@
 
 int main(int argc, char **argv) {
     fb_sock_platform_init();
+    FbConfig launch_config = {0};
+    int meeting_launch = fb_meeting_launch_config(argc, argv, &launch_config);
+    if (meeting_launch < 0) {
+        fb_sock_platform_cleanup();
+        return 2;
+    }
     if (argc > 1 && strncmp(argv[1], "--meeting-", 10) == 0) {
         int rc = fb_meeting_cli(argc, argv);
         fb_sock_platform_cleanup();
@@ -42,6 +48,13 @@ int main(int argc, char **argv) {
         return 1;
     }
     fb_app_init(app, fb_screen_width(), fb_screen_height());
+    if (meeting_launch) {
+        fb_meeting_launch_config(argc, argv, &app->config);
+        fb_meeting_shutdown(&app->meeting);
+        fb_meeting_init(&app->meeting, &app->config, app->data_dir);
+        app->input_mode = FB_INPUT_MODE_MEETING;
+        fb_meeting_command(&app->meeting, "help");
+    }
 
     while (app->running) {
         FbEvent ev;

@@ -1,7 +1,36 @@
 #include "util/fileutil.h"
 
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "util/paths.h"
+
+int fb_write_file_atomic(const char *path, const char *text) {
+    size_t size = strlen(path) + 5;
+    char *temporary = malloc(size);
+    if (!temporary) {
+        return -1;
+    }
+    snprintf(temporary, size, "%s.tmp", path);
+    FILE *file = fopen(temporary, "wb");
+    if (!file) {
+        free(temporary);
+        return -1;
+    }
+    size_t length = strlen(text);
+    int result = fwrite(text, 1, length, file) == length ? 0 : -1;
+    if (fclose(file) != 0) {
+        result = -1;
+    }
+    if (result == 0) {
+        result = fb_replace_file(temporary, path);
+    }
+    if (result != 0) {
+        remove(temporary);
+    }
+    free(temporary);
+    return result;
+}
 
 char *fb_read_file(const char *path, size_t *out_len) {
     FILE *f = fopen(path, "rb");

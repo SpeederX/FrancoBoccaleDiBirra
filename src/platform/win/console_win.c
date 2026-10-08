@@ -294,6 +294,8 @@ static FbKeyCode map_key(const KEY_EVENT_RECORD *k, uint32_t *out_ch) {
     case VK_F5: return FB_KEY_F5;
     case VK_F6: return FB_KEY_F6;
     case VK_F7: return FB_KEY_F7;
+    case VK_F8: return FB_KEY_F8;
+    case VK_F9: return FB_KEY_F9;
     case VK_F10: return FB_KEY_F10;
     case VK_PRIOR: return FB_KEY_PAGE_UP;
     case VK_NEXT: return FB_KEY_PAGE_DOWN;

@@ -52,6 +52,8 @@ typedef enum {
     FB_KEY_F5,
     FB_KEY_F6, /* /list */
     FB_KEY_F7, /* /new_page (diary mode only) */
+    FB_KEY_F8,
+    FB_KEY_F9,
     FB_KEY_F10,
     FB_KEY_PAGE_UP,
     FB_KEY_PAGE_DOWN,

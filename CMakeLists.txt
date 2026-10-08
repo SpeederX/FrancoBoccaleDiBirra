@@ -41,6 +41,8 @@ add_executable(fbdb
     src/app/sweep.c
     src/meeting/meeting_cli.c
     src/meeting/meeting_document.c
+    src/meeting/meeting_job.c
+    src/meeting/meeting.c
     src/download/download_job.c
     src/tui/layout.c
     src/tui/widget_cmdline.c

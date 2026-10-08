@@ -3,8 +3,13 @@
 
 #include "util/paths.h"
 
-#include <errno.h>
 #include <stdio.h>
+
+int fb_replace_file(const char *source, const char *destination) {
+    return rename(source, destination);
+}
+
+#include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 

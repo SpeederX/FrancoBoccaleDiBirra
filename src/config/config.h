@@ -25,6 +25,12 @@ typedef struct {
     char qwen_model[512];
     int qwen_port; /* 0 = not set here */
     char calibr_root[512];
+    char meeting_parakeet_exe[512];
+    char meeting_asr_model[512];
+    char meeting_diar_model[512];
+    char meeting_ffmpeg_exe[512];
+    char meeting_llm_model[128];
+    int meeting_llm_port;
 
     /* Diary mode's page/memory thresholds -- 0 means "use the built-in
        default" (see diary/diary.h). Each is clamped to that module's hard
