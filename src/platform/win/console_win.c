@@ -24,6 +24,8 @@ static int g_initialized = 0;
 static int g_width = 0;
 static int g_height = 0;
 static FbCell *g_cells = NULL; /* g_width * g_height, row-major */
+static FbCell *g_presented = NULL;
+static int g_frame_valid = 0;
 
 static wchar_t *g_out_buf = NULL; /* count is in wchar_t units, not bytes */
 static size_t g_out_buf_cap = 0;
@@ -44,9 +46,10 @@ static BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
            console modes synchronously here too, best-effort. */
         if (g_hin) SetConsoleMode(g_hin, g_orig_in_mode);
         if (g_hout) {
-            SetConsoleMode(g_hout, g_orig_out_mode);
             DWORD written;
-            WriteConsoleA(g_hout, "\x1b[?25h", 6, &written, NULL);
+            const char restore[] = "\x1b[?1049l\x1b[?25h\x1b[0m";
+            WriteConsoleA(g_hout, restore, sizeof(restore) - 1, &written, NULL);
+            SetConsoleMode(g_hout, g_orig_out_mode);
         }
         return TRUE;
     default:
@@ -54,57 +57,27 @@ static BOOL WINAPI console_ctrl_handler(DWORD ctrl_type) {
     }
 }
 
-/* Keeps the actual OS console screen buffer in lockstep with our believed
-   dimensions on every resize, not just at startup (see fb_screen_init's
-   original comment on why they're matched at all -- no scrollback to fight
-   with absolute cursor positioning). Growing is a single call, but
-   SetConsoleScreenBufferSize documents that it *fails outright* if the
-   requested size is smaller than the console's current window rect
-   (srWindow) in either dimension -- exactly the case when the user shrinks
-   the window. Left unhandled, that failure is silent: our g_width/g_cells
-   shrink to the new size regardless (nothing here checks the return
-   value), but the OS buffer stays at its old, larger size, so the window
-   still shows stale leftover content past our new, smaller edge -- read as
-   the old content "pushing" against whatever just got drawn into the
-   actually-live area. The fix is the documented shrink-then-resize
-   sequence: shrink the window rect first (so it's never larger than the
-   buffer we're about to request), resize the buffer, then grow the window
-   back out to exactly match -- restoring the no-scrollback invariant
-   either way, growing or shrinking. */
-static void set_console_buffer_size(HANDLE hout, int width, int height) {
-    if (!hout) return;
-
+static int viewport_size(int *width, int *height) {
     CONSOLE_SCREEN_BUFFER_INFO info;
-    if (GetConsoleScreenBufferInfo(hout, &info)) {
-        int window_w = info.srWindow.Right - info.srWindow.Left + 1;
-        int window_h = info.srWindow.Bottom - info.srWindow.Top + 1;
-        if (width < window_w || height < window_h) {
-            SMALL_RECT shrink = info.srWindow;
-            if (width < window_w) shrink.Right = (SHORT)(shrink.Left + width - 1);
-            if (height < window_h) shrink.Bottom = (SHORT)(shrink.Top + height - 1);
-            SetConsoleWindowInfo(hout, TRUE, &shrink);
-        }
+    if (!GetConsoleScreenBufferInfo(g_hout, &info)) {
+        return -1;
     }
-
-    COORD buf_size;
-    buf_size.X = (SHORT)width;
-    buf_size.Y = (SHORT)height;
-    SetConsoleScreenBufferSize(hout, buf_size);
-
-    SMALL_RECT full = {0, 0, (SHORT)(width - 1), (SHORT)(height - 1)};
-    SetConsoleWindowInfo(hout, TRUE, &full);
+    *width = info.srWindow.Right - info.srWindow.Left + 1;
+    *height = info.srWindow.Bottom - info.srWindow.Top + 1;
+    return 0;
 }
 
 static void resize_buffers(int width, int height) {
     if (width < 1) width = 1;
     if (height < 1) height = 1;
 
-    set_console_buffer_size(g_hout, width, height);
-
     free(g_cells);
+    free(g_presented);
     g_width = width;
     g_height = height;
     g_cells = (FbCell *)calloc((size_t)width * (size_t)height, sizeof(FbCell));
+    g_presented = (FbCell *)calloc((size_t)width * (size_t)height, sizeof(FbCell));
+    g_frame_valid = 0;
 
     /* Worst case per cell: a full SGR fg+bg change (~40 ASCII chars, each
        one wchar_t unit) plus one glyph (up to a 2-unit surrogate pair); a
@@ -141,21 +114,17 @@ int fb_screen_init(void) {
                       DISABLE_NEWLINE_AUTO_RETURN;
     if (!SetConsoleMode(g_hout, out_mode)) return -1;
 
-    CONSOLE_SCREEN_BUFFER_INFO info;
-    if (!GetConsoleScreenBufferInfo(g_hout, &info)) return -1;
-    int width = info.srWindow.Right - info.srWindow.Left + 1;
-    int height = info.srWindow.Bottom - info.srWindow.Top + 1;
-
-    /* resize_buffers matches the scroll buffer to this size too (via
-       set_console_buffer_size), so there is no scrollback to fight with
-       absolute cursor positioning. */
+    int width, height;
+    if (viewport_size(&width, &height) != 0) return -1;
     resize_buffers(width, height);
-    if (!g_cells || !g_out_buf) return -1;
+    if (!g_cells || !g_presented || !g_out_buf) return -1;
 
     SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 
     DWORD written;
-    WriteConsoleA(g_hout, "\x1b[?25l\x1b[2J", 10, &written, NULL); /* hide cursor, clear */
+    /* The alternate buffer follows the viewport without resizing the host window. */
+    const char enter[] = "\x1b[?1049h\x1b[?25l\x1b[2J";
+    WriteConsoleA(g_hout, enter, sizeof(enter) - 1, &written, NULL);
 
     g_initialized = 1;
     return 0;
@@ -166,13 +135,17 @@ void fb_screen_shutdown(void) {
 
     DWORD written;
     if (g_hout) {
-        WriteConsoleA(g_hout, "\x1b[?25h\x1b[0m", 10, &written, NULL); /* show cursor, reset attrs */
+        const char restore[] = "\x1b[?1049l\x1b[?25h\x1b[0m";
+        WriteConsoleA(g_hout, restore, sizeof(restore) - 1, &written, NULL);
         SetConsoleMode(g_hout, g_orig_out_mode);
     }
     if (g_hin) SetConsoleMode(g_hin, g_orig_in_mode);
 
     free(g_cells);
     g_cells = NULL;
+    free(g_presented);
+    g_presented = NULL;
+    g_frame_valid = 0;
     free(g_out_buf);
     g_out_buf = NULL;
     g_out_buf_cap = 0;
@@ -211,23 +184,41 @@ static size_t append_wchar(wchar_t *buf, size_t cap, size_t off, wchar_t ch) {
     return off + 1;
 }
 
+static int row_changed(int y) {
+    if (!g_frame_valid) {
+        return 1;
+    }
+    for (int x = 0; x < g_width; ++x) {
+        const FbCell *current = &g_cells[y * g_width + x];
+        const FbCell *previous = &g_presented[y * g_width + x];
+        if (current->ch != previous->ch || current->fg_r != previous->fg_r ||
+            current->fg_g != previous->fg_g || current->fg_b != previous->fg_b ||
+            current->bg_r != previous->bg_r || current->bg_g != previous->bg_g ||
+            current->bg_b != previous->bg_b || current->bold != previous->bold) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void fb_screen_present(void) {
-    if (!g_cells || !g_out_buf) return;
+    if (!g_cells || !g_presented || !g_out_buf) return;
+    int width, height;
+    if (viewport_size(&width, &height) != 0 || width != g_width || height != g_height) {
+        g_frame_valid = 0;
+        return;
+    }
 
     size_t off = 0;
     char tmp[64];
 
-    /* "Synchronized output" (DEC private mode 2026): tells a supporting
-       terminal (Windows Terminal included) to hold rendering until the
-       matching end marker rather than painting whatever's in its buffer
-       mid-write. Every frame here is a full-screen repaint sent as one
-       WriteConsoleW call, which a terminal can still sample partway
-       through -- exactly what reads as flicker/tearing on a full redraw at
-       ~30fps. A terminal that doesn't recognize the sequence just ignores
-       it as an unknown private mode, so this is free on anything else. */
+    /* Group changed rows into one write; supporting terminals can also batch presentation. */
     off = append_ascii(g_out_buf, g_out_buf_cap, off, "\x1b[?2026h", 8);
 
     for (int y = 0; y < g_height; ++y) {
+        if (!row_changed(y)) {
+            continue;
+        }
         int n = snprintf(tmp, sizeof(tmp), "\x1b[%d;1H", y + 1);
         off = append_ascii(g_out_buf, g_out_buf_cap, off, tmp, (size_t)n);
 
@@ -262,10 +253,30 @@ void fb_screen_present(void) {
         }
     }
 
+    if (off == 8) {
+        return;
+    }
     off = append_ascii(g_out_buf, g_out_buf_cap, off, "\x1b[?2026l", 8);
 
     DWORD written;
-    WriteConsoleW(g_hout, g_out_buf, (DWORD)off, &written, NULL);
+    if (WriteConsoleW(g_hout, g_out_buf, (DWORD)off, &written, NULL) && written == off) {
+        memcpy(g_presented, g_cells, (size_t)g_width * (size_t)g_height * sizeof(FbCell));
+        g_frame_valid = 1;
+    } else {
+        g_frame_valid = 0;
+    }
+}
+
+static int poll_viewport(FbEvent *event) {
+    int width, height;
+    if (viewport_size(&width, &height) != 0 || (width == g_width && height == g_height)) {
+        return 0;
+    }
+    resize_buffers(width, height);
+    event->type = FB_EVENT_RESIZE;
+    event->width = g_width;
+    event->height = g_height;
+    return 1;
 }
 
 static FbKeyCode map_key(const KEY_EVENT_RECORD *k, uint32_t *out_ch) {
@@ -316,6 +327,9 @@ int fb_screen_poll_event(FbEvent *out_event, int timeout_ms) {
         out_event->type = FB_EVENT_QUIT;
         return 1;
     }
+    if (poll_viewport(out_event)) {
+        return 1;
+    }
 
     DWORD wait = WaitForSingleObject(g_hin, (DWORD)timeout_ms);
     if (wait == WAIT_TIMEOUT) return 0;
@@ -340,13 +354,8 @@ int fb_screen_poll_event(FbEvent *out_event, int timeout_ms) {
         }
 
         if (rec.EventType == WINDOW_BUFFER_SIZE_EVENT) {
-            int w = rec.Event.WindowBufferSizeEvent.dwSize.X;
-            int h = rec.Event.WindowBufferSizeEvent.dwSize.Y;
-            if (w > 0 && h > 0 && (w != g_width || h != g_height)) {
-                resize_buffers(w, h);
-                out_event->type = FB_EVENT_RESIZE;
-                out_event->width = w;
-                out_event->height = h;
+            /* Buffered events can describe obsolete sizes or include scrollback rows. */
+            if (poll_viewport(out_event)) {
                 return 1;
             }
             continue;
