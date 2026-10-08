@@ -34,6 +34,9 @@ and the report; it receives text, not audio. Qwen is not required for ASR.
    transcription appears on the right in audio blocks of at most 20 seconds.
    Press Ctrl+Space to pause, then again to resume the **same meeting and speaker
    session**. F8 switches between notes and commands.
+   The transcript follows new text automatically. PgUp pauses that follow while
+   you read earlier lines; PgDn back to the bottom resumes it. Resizing rewraps
+   the text and adjusts the visible rows while retaining your reading position.
 4. Use `/meeting speakers` to inspect the numbered voices and name evidence.
    Assign or correct a name with `/meeting name 1 Alice Smith`, including while
    recording or processing. User names take priority over inferred names.

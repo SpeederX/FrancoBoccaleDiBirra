@@ -41,6 +41,9 @@ typedef struct {
     char *report;
     char *output_text;
     int output_width;
+    int output_height;
+    int output_follow;
+    size_t output_offsets[FB_TEXTVIEW_MAX_LINES];
     int llm_port;
     char llm_model[128];
     int document_dirty;

@@ -34,6 +34,7 @@ void fb_meeting_init(FbMeeting *meeting, FbConfig *config) {
     }
     fb_notepad_init(&meeting->notes);
     fb_textview_clear(&meeting->output);
+    meeting->output_follow = 1;
     meeting->llm_port = config->meeting_llm_port;
     snprintf(meeting->llm_model, sizeof(meeting->llm_model), "%s", config->meeting_llm_model);
     refresh_tools(meeting);
@@ -42,8 +43,23 @@ void fb_meeting_init(FbMeeting *meeting, FbConfig *config) {
     snprintf(meeting->status, sizeof(meeting->status), "F8 commands, /meeting new to begin; /meeting help for setup");
 }
 
+static int output_max_scroll(const FbMeeting *meeting) {
+    int rows = meeting->output_height > 0 ? meeting->output_height : 1;
+    int maximum = meeting->output.count - rows;
+    return maximum > 0 ? maximum : 0;
+}
+
+static void clamp_output_scroll(FbMeeting *meeting) {
+    int maximum = output_max_scroll(meeting);
+    if (meeting->output_follow || meeting->output.scroll > maximum) {
+        meeting->output.scroll = maximum;
+    }
+}
+
 static void reflow_output(FbMeeting *meeting) {
     const char *text = meeting->output_text;
+    size_t anchor = meeting->output.count > 0
+                        ? meeting->output_offsets[meeting->output.scroll] : 0;
     fb_textview_clear(&meeting->output);
     if (!text) {
         return;
@@ -69,7 +85,12 @@ static void reflow_output(FbMeeting *meeting) {
         }
         memcpy(line, text, count);
         line[count] = '\0';
+        if (meeting->output.count == FB_TEXTVIEW_MAX_LINES) {
+            memmove(meeting->output_offsets, meeting->output_offsets + 1,
+                    (FB_TEXTVIEW_MAX_LINES - 1) * sizeof(meeting->output_offsets[0]));
+        }
         fb_textview_add_line(&meeting->output, line);
+        meeting->output_offsets[meeting->output.count - 1] = (size_t)(text - meeting->output_text);
         text += count;
         if (*text == '\n') {
             text++;
@@ -77,6 +98,12 @@ static void reflow_output(FbMeeting *meeting) {
             text++;
         }
     }
+    for (int i = 0; i < meeting->output.count; ++i) {
+        if (meeting->output_offsets[i] <= anchor) {
+            meeting->output.scroll = i;
+        }
+    }
+    clamp_output_scroll(meeting);
 }
 
 static void view_text(FbMeeting *meeting, const char *text) {
@@ -90,6 +117,13 @@ static void view_text(FbMeeting *meeting, const char *text) {
     free(meeting->output_text);
     meeting->output_text = copy;
     reflow_output(meeting);
+}
+
+static void show_text(FbMeeting *meeting, const char *text) {
+    meeting->output_follow = 0;
+    meeting->output.scroll = 0;
+    meeting->output_offsets[0] = 0;
+    view_text(meeting, text);
 }
 
 static void refresh_output(FbMeeting *meeting) {
@@ -117,7 +151,7 @@ static void refresh_output(FbMeeting *meeting) {
 }
 
 static void help(FbMeeting *meeting) {
-    view_text(meeting,
+    show_text(meeting,
         "MEETING\n"
         "Type in Notes; Enter creates a new line. F8 switches to commands.\n"
         "Ctrl+Space starts, pauses and resumes the SAME meeting.\n"
@@ -211,6 +245,7 @@ static int new_meeting(FbMeeting *meeting) {
     free(meeting->report);
     meeting->report = NULL;
     meeting->output_kind = 0;
+    meeting->output_follow = 1;
     meeting->command_focus = 0;
     refresh_output(meeting);
     start_save(meeting);
@@ -417,7 +452,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
             snprintf(meeting->status, sizeof(meeting->status), "could not enumerate audio sources");
             return -1;
         }
-        view_text(meeting, sources);
+        show_text(meeting, sources);
         return 0;
     }
     if (strcmp(verb, "source") == 0) {
@@ -474,7 +509,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
                 used += (size_t)snprintf(text + used, capacity - used, "Evidence: %s\n", evidence->valuestring);
             }
         }
-        view_text(meeting, text);
+        show_text(meeting, text);
         free(text);
         snprintf(meeting->status, sizeof(meeting->status), "speaker numbers, names, source and supporting quote; /meeting name <number> <name> to edit");
         return 0;
@@ -524,6 +559,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         free(meeting->output_text);
         meeting->output_text = NULL;
         fb_textview_clear(&meeting->output);
+        meeting->output_follow = 0;
         fb_textview_add_line(&meeting->output, meeting->root);
         for (int i = 0; i < count; ++i) {
             if (entries[i].is_dir && strcmp(entries[i].name, "..") != 0) {
@@ -558,6 +594,9 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
     }
     if (event->key == FB_KEY_F9) {
         meeting->output_kind = (meeting->output_kind + 1) % 3;
+        meeting->output_follow = meeting->output_kind != 2;
+        meeting->output.scroll = 0;
+        meeting->output_offsets[0] = 0;
         refresh_output(meeting);
         return 1;
     }
@@ -570,9 +609,11 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
         if (meeting->output.scroll < 0) {
             meeting->output.scroll = 0;
         }
-        if (meeting->output.scroll > meeting->output.count - 1) {
-            meeting->output.scroll = meeting->output.count > 0 ? meeting->output.count - 1 : 0;
+        int maximum = output_max_scroll(meeting);
+        if (meeting->output.scroll > maximum) {
+            meeting->output.scroll = maximum;
         }
+        meeting->output_follow = meeting->output.scroll == maximum;
         return 1;
     }
     if (!meeting->command_focus) {
@@ -743,10 +784,14 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
     FbRect left = layout.main_area;
     left.w = layout.main_area.w / 2;
     FbRect right = {left.w + 1, left.y, layout.main_area.w - left.w - 1, left.h};
-    if (meeting->output_width != right.w && meeting->output_text) {
+    int output_height = right.h > 0 ? right.h - 1 : 0;
+    int width_changed = meeting->output_width != right.w;
+    meeting->output_height = output_height;
+    if (width_changed && meeting->output_text && right.w > 0) {
         meeting->output_width = right.w;
         reflow_output(meeting);
     }
+    clamp_output_scroll(meeting);
     fb_draw_text(left.x + 1, left.y, meeting->command_focus ? "Notes | F8 to edit" : "Notes | editing; autosave",
                  130, 205, 185, FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     const char *label = meeting->output_kind == 0 ? "Original ASR | F9 next" :

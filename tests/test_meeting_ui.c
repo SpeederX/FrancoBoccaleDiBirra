@@ -13,11 +13,13 @@
 #include "util/utf8.h"
 
 static FbCell cells[36][120];
+static int screen_width = 120;
+static int screen_height = 36;
 
 int fb_screen_init(void) { return 0; }
 void fb_screen_shutdown(void) {}
-int fb_screen_width(void) { return 120; }
-int fb_screen_height(void) { return 36; }
+int fb_screen_width(void) { return screen_width; }
+int fb_screen_height(void) { return screen_height; }
 void fb_screen_clear(void) { memset(cells, 0, sizeof(cells)); }
 void fb_screen_present(void) {}
 int fb_screen_poll_event(FbEvent *event, int timeout) {
@@ -26,7 +28,7 @@ int fb_screen_poll_event(FbEvent *event, int timeout) {
     return 0;
 }
 void fb_screen_set_cell(int x, int y, const FbCell *cell) {
-    if (x >= 0 && y >= 0 && x < 120 && y < 36) {
+    if (x >= 0 && y >= 0 && x < screen_width && y < screen_height) {
         cells[y][x] = *cell;
     }
 }
@@ -51,6 +53,70 @@ static void idle(FbMeeting *meeting) {
         assert(fb_now_ms() < deadline);
         fb_sleep_ms(5);
     }
+}
+
+static void resize(FbApp *app, int width, int height) {
+    screen_width = width;
+    screen_height = height;
+    FbEvent event = {FB_EVENT_RESIZE, FB_KEY_NONE, 0, width, height};
+    fb_app_handle_event(app, &event);
+    fb_screen_clear();
+    fb_app_render(app);
+}
+
+static void test_transcript_viewport(FbApp *app) {
+    app->meeting.llm_port = 0;
+    cJSON_Delete(app->meeting.document);
+    char error[256];
+    app->meeting.document = fb_meeting_document_parse(
+        "{\"utterances\":[{\"speaker\":0,\"text\":\"first\",\"start\":0,\"end\":1}]}", error, sizeof(error));
+    cJSON *utterances = cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances");
+    for (int i = 2; i <= 100; ++i) {
+        cJSON *utterance = cJSON_Duplicate(cJSON_GetArrayItem(utterances, 0), 1);
+        cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(utterance, "id"), i);
+        char text[160];
+        snprintf(text, sizeof(text), "Line %03d has enough words to wrap when the window becomes narrower.", i);
+        cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(utterance, "text"), text);
+        cJSON_AddItemToArray(utterances, utterance);
+    }
+    assert(fb_meeting_command(&app->meeting, "name 1 Reader") == 0);
+    idle(&app->meeting);
+    app->meeting.output_kind = 2;
+    key(app, FB_KEY_F9, 0);
+    resize(app, 120, 36);
+    int visible = 28;
+    assert(app->meeting.output.scroll == app->meeting.output.count - visible);
+    assert(strstr(app->meeting.output.lines[app->meeting.output.count - 1], "narrower"));
+
+    key(app, FB_KEY_PAGE_UP, 0);
+    int reading = app->meeting.output.scroll;
+    char top[FB_TEXTVIEW_LINE_MAX];
+    snprintf(top, sizeof(top), "%s", app->meeting.output.lines[reading]);
+    cJSON *latest = cJSON_Duplicate(cJSON_GetArrayItem(utterances, 99), 1);
+    cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(latest, "id"), 101);
+    cJSON_SetValuestring(cJSON_GetObjectItemCaseSensitive(latest, "text"), "The latest transcript update.");
+    cJSON_AddItemToArray(utterances, latest);
+    assert(fb_meeting_command(&app->meeting, "name 1 Reader") == 0);
+    idle(&app->meeting);
+    assert(app->meeting.output.scroll > 0);
+    assert(strcmp(app->meeting.output.lines[app->meeting.output.scroll], top) == 0);
+
+    resize(app, 76, 22);
+    assert(app->meeting.output.scroll > 0);
+    assert(app->meeting.output.scroll < app->meeting.output.count - 14);
+    for (int i = 0; i < app->meeting.output.count; ++i) {
+        assert(strlen(app->meeting.output.lines[i]) <= 37);
+    }
+    for (int i = 0; i < 100; ++i) {
+        key(app, FB_KEY_PAGE_DOWN, 0);
+    }
+    assert(app->meeting.output.scroll == app->meeting.output.count - 14);
+    resize(app, 76, 30);
+    assert(app->meeting.output.scroll == app->meeting.output.count - 22);
+    resize(app, 120, 36);
+    assert(app->meeting.output.scroll == app->meeting.output.count - visible);
+    assert(strstr(app->meeting.output.lines[app->meeting.output.count - 1], "latest transcript"));
+    assert(strstr(app->meeting.notes.text, "Friday"));
 }
 
 int main(int argc, char **argv) {
@@ -262,10 +328,7 @@ int main(int argc, char **argv) {
             app->meeting.capture_status.frames, app->meeting.capture_status.dropped_frames,
             cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")));
     }
-    key(app, FB_KEY_PAGE_DOWN, 0);
-    assert(app->meeting.output.scroll > 0);
-    key(app, FB_KEY_PAGE_UP, 0);
-    assert(app->meeting.output.scroll == 0);
+    test_transcript_viewport(app);
     key(app, FB_KEY_F8, 0);
     fb_screen_clear();
     snprintf(app->meeting.status, sizeof(app->meeting.status), "notes saved locally; original transcript retained");
