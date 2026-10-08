@@ -65,6 +65,7 @@ add_executable(fbdb
     src/audio/pcm_reader.c
     src/audio/audio_mix.c
     src/audio/system_capture.c
+    src/audio/device_selection.c
     src/net/http_client.c
     src/net/llama_client.c
     src/backend/backend_mgr.c

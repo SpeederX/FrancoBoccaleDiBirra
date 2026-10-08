@@ -20,7 +20,12 @@
 #include "util/paths.h"
 
 void fb_app_init(FbApp *app, int width, int height) {
+    fb_app_init_mode(app, width, height, FB_INPUT_MODE_COMMAND);
+}
+
+void fb_app_init_mode(FbApp *app, int width, int height, FbInputMode mode) {
     memset(app, 0, sizeof(*app));
+    app->input_mode = mode;
     app->running = 1;
     app->width = width;
     app->height = height;
@@ -30,7 +35,9 @@ void fb_app_init(FbApp *app, int width, int height) {
     fb_chat_job_init(&app->diary_chat_job);
     fb_download_job_init(&app->download_job);
 
-    fb_mic_init();
+    if (mode != FB_INPUT_MODE_MEETING) {
+        fb_mic_init();
+    }
     app->mic_available = fb_mic_state() == FB_MIC_READY;
     if (fb_get_data_dir(app->data_dir, sizeof(app->data_dir)) != 0) {
         app->data_dir[0] = '\0';
@@ -436,8 +443,17 @@ static void tick_download(FbApp *app) {
 }
 
 void fb_app_tick(FbApp *app) {
+    if (app->input_mode != FB_INPUT_MODE_MEETING && fb_mic_state() == FB_MIC_OFF) {
+        fb_mic_init();
+    }
     app->mic_available = fb_mic_state() == FB_MIC_READY;
     fb_meeting_tick(&app->meeting);
+    if (app->meeting.settings_dirty) {
+        app->meeting.settings_dirty = 0;
+        if (fb_config_save(&app->config, app->data_dir) != 0) {
+            snprintf(app->meeting.status, sizeof(app->meeting.status), "device selected for this session; could not save settings to config.json");
+        }
+    }
     fb_backend_mgr_tick(&app->backend_mgr);
     tick_download(app);
 

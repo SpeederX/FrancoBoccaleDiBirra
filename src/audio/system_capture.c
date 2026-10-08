@@ -2,6 +2,7 @@
 #include "miniaudio.h"
 
 #include "audio/system_capture.h"
+#include "audio/device_selection.h"
 #include "audio/wav_stream.h"
 #include "audio/audio_mix.h"
 #include "platform/thread.h"
@@ -29,6 +30,7 @@ struct FbSystemCapture {
     ma_pcm_rb audio[2];
     FbCaptureInput inputs[2];
     FbCaptureSource source;
+    char device_names[2][256];
     int resume;
     unsigned long long dropped_frames;
 };
@@ -147,8 +149,17 @@ static void capture_worker(void *arg) {
         config.sampleRate = FB_SYSTEM_SAMPLE_RATE;
         config.dataCallback = capture_callback;
         config.pUserData = &capture->inputs[i];
+        ma_device_id id;
+        char name[256];
+        if (fb_audio_device_resolve(&context, (FbCaptureSource)(1 << i), capture->device_names[i],
+                                    &id, name, sizeof(name)) != 0) {
+            error = i == 0 ? "selected output device unavailable; use /meeting output or /meeting sources"
+                           : "selected microphone unavailable; use /meeting microphone or /meeting sources";
+            goto done;
+        }
+        config.capture.pDeviceID = name[0] ? &id : NULL;
         if (ma_device_init(&context, &config, &devices[i]) != MA_SUCCESS) {
-            error = i == 0 ? "could not open system output" : "could not open the default microphone";
+            error = i == 0 ? "could not open selected system output" : "could not open selected microphone";
             goto done;
         }
         device_ready[i] = 1;
@@ -245,6 +256,11 @@ FbSystemCapture *fb_system_capture_start(const char *path) {
 }
 
 FbSystemCapture *fb_system_capture_start_source(const char *path, FbCaptureSource source, int resume) {
+    return fb_system_capture_start_devices(path, source, resume, NULL, NULL);
+}
+
+FbSystemCapture *fb_system_capture_start_devices(const char *path, FbCaptureSource source, int resume,
+                                                const char *output_device, const char *microphone) {
     if (!path || !path[0] || strlen(path) >= 600 || source < 1 || source > 3) {
         return NULL;
     }
@@ -259,6 +275,8 @@ FbSystemCapture *fb_system_capture_start_source(const char *path, FbCaptureSourc
     }
     snprintf(capture->path, sizeof(capture->path), "%s", path);
     capture->source = source;
+    snprintf(capture->device_names[0], sizeof(capture->device_names[0]), "%s", output_device ? output_device : "");
+    snprintf(capture->device_names[1], sizeof(capture->device_names[1]), "%s", microphone ? microphone : "");
     capture->resume = resume;
     for (int i = 0; i < 2; ++i) {
         capture->inputs[i].capture = capture;
@@ -274,28 +292,7 @@ FbSystemCapture *fb_system_capture_start_source(const char *path, FbCaptureSourc
 }
 
 int fb_system_capture_sources(char *out, size_t capacity) {
-    ma_context context;
-    if (ma_context_init(NULL, 0, NULL, &context) != MA_SUCCESS) {
-        return -1;
-    }
-    ma_device_info *playback, *microphones;
-    ma_uint32 playback_count, microphone_count;
-    if (ma_context_get_devices(&context, &playback, &playback_count, &microphones, &microphone_count) != MA_SUCCESS) {
-        ma_context_uninit(&context);
-        return -1;
-    }
-    size_t used = (size_t)snprintf(out, capacity, "Select /meeting source system|microphone|both\nDefault devices follow Windows audio settings.\n\nSystem output devices:\n");
-    for (ma_uint32 i = 0; i < playback_count && used < capacity; ++i) {
-        used += (size_t)snprintf(out + used, capacity - used, "%s%s\n", playback[i].isDefault ? "[default] " : "", playback[i].name);
-    }
-    if (used < capacity) {
-        used += (size_t)snprintf(out + used, capacity - used, "\nMicrophones:\n");
-    }
-    for (ma_uint32 i = 0; i < microphone_count && used < capacity; ++i) {
-        used += (size_t)snprintf(out + used, capacity - used, "%s%s\n", microphones[i].isDefault ? "[default] " : "", microphones[i].name);
-    }
-    ma_context_uninit(&context);
-    return 0;
+    return fb_audio_devices_list(out, capacity);
 }
 
 void fb_system_capture_stop(FbSystemCapture *capture) {

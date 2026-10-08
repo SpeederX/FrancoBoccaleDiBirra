@@ -28,6 +28,8 @@ typedef struct {
 
 FbSystemCapture *fb_system_capture_start(const char *path);
 FbSystemCapture *fb_system_capture_start_source(const char *path, FbCaptureSource source, int resume);
+FbSystemCapture *fb_system_capture_start_devices(const char *path, FbCaptureSource source, int resume,
+                                                const char *output_device, const char *microphone);
 int fb_system_capture_sources(char *out, size_t capacity);
 void fb_system_capture_stop(FbSystemCapture *capture);
 void fb_system_capture_poll(FbSystemCapture *capture, FbCaptureStatus *status);

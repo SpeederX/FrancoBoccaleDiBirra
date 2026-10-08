@@ -96,6 +96,7 @@ void fb_app_push_wave_sample(FbApp *app, float amplitude);
 void fb_app_shutdown(FbApp *app);
 
 void fb_app_init(FbApp *app, int width, int height);
+void fb_app_init_mode(FbApp *app, int width, int height, FbInputMode mode);
 /* Non-rendering per-frame state update (backend health polling, etc.);
    call once per frame before fb_app_render. */
 void fb_app_tick(FbApp *app);

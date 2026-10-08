@@ -5,6 +5,7 @@
 
 #include "app/app.h"
 #include "audio/wav_stream.h"
+#include "audio/mic_capture.h"
 #include "meeting/meeting_document.h"
 #include "meeting/meeting_cli.h"
 #include "net/sockets_compat.h"
@@ -49,7 +50,7 @@ static void type(FbApp *app, const char *text) {
 
 static void idle(FbMeeting *meeting) {
     unsigned long long deadline = fb_now_ms() + 5000;
-    while (meeting->job || meeting->asr_job || meeting->save_job || meeting->document_dirty) {
+    while (meeting->job || meeting->asr_job || meeting->save_job || meeting->devices_job || meeting->document_dirty) {
         fb_meeting_tick(meeting);
         assert(fb_now_ms() < deadline);
         fb_sleep_ms(5);
@@ -63,6 +64,21 @@ static void resize(FbApp *app, int width, int height) {
     fb_app_handle_event(app, &event);
     fb_screen_clear();
     fb_app_render(app);
+}
+
+static void save_screen(const char *path) {
+    FILE *screen = fopen(path, "wb");
+    assert(screen);
+    fprintf(screen, "{\"width\":%d,\"height\":%d,\"cells\":[", screen_width, screen_height);
+    for (int y = 0; y < screen_height; ++y) {
+        for (int x = 0; x < screen_width; ++x) {
+            FbCell *cell = &cells[y][x];
+            fprintf(screen, "%s[%u,%u,%u,%u,%u,%u,%u]", x || y ? "," : "",
+                    cell->ch, cell->fg_r, cell->fg_g, cell->fg_b, cell->bg_r, cell->bg_g, cell->bg_b);
+        }
+    }
+    fprintf(screen, "]}");
+    fclose(screen);
 }
 
 static void test_transcript_viewport(FbApp *app) {
@@ -104,6 +120,7 @@ static void test_transcript_viewport(FbApp *app) {
     assert(strcmp(app->meeting.output.lines[app->meeting.output.scroll], top) == 0);
 
     resize(app, 76, 22);
+    save_screen("meeting-ui-narrow.json");
     assert(app->meeting.output.scroll > 0);
     assert(app->meeting.output.scroll < app->meeting.output.count - 14);
     for (int i = 0; i < app->meeting.output.count; ++i) {
@@ -121,8 +138,49 @@ static void test_transcript_viewport(FbApp *app) {
     assert(app->meeting.notes.revision == notes_revision);
 }
 
+static void begin_fixture_live(FbApp *app, const char *library) {
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    snprintf(app->meeting.tools.parakeet_library, 512, "%s", library);
+    snprintf(app->meeting.tools.asr_model, 512, "fixture");
+    snprintf(app->meeting.tools.diar_model, 512, "fixture");
+    char audio[700];
+    snprintf(audio, sizeof(audio), "%s/audio.wav", app->meeting.directory);
+    FbWavStream wav;
+    assert(fb_wav_stream_open(&wav, audio, 16000) == 0);
+    float *pcm = calloc(320000, sizeof(float));
+    assert(pcm);
+    assert(fb_wav_stream_append(&wav, pcm, 320000) == 0);
+    assert(fb_wav_stream_append(&wav, pcm, 80000) == 0);
+    assert(fb_wav_stream_close(&wav) == 0);
+    free(pcm);
+    app->meeting.asr_job = fb_meeting_job_start(FB_MEETING_JOB_LIVE, &app->meeting.tools,
+        app->meeting.directory, NULL, NULL, NULL, 0, NULL);
+    assert(app->meeting.asr_job);
+    app->meeting.asr_live = 1;
+    app->meeting.paused = 1;
+    fb_notepad_set(&app->meeting.notes, "Final notes are still editable after closing.");
+    app->meeting.command_focus = 0;
+}
+
 int main(int argc, char **argv) {
     fb_sock_platform_init();
+#ifdef _WIN32
+    if (argc == 2 && strcmp(argv[1], "--startup") == 0) {
+        assert(fb_ensure_dir("test-startup-state") == 0);
+        assert(_putenv_s("LOCALAPPDATA", "test-startup-state") == 0);
+        FbApp *startup = calloc(1, sizeof(*startup));
+        assert(startup);
+        fb_app_init_mode(startup, 120, 36, FB_INPUT_MODE_MEETING);
+        fb_app_tick(startup);
+        assert(startup->input_mode == FB_INPUT_MODE_MEETING);
+        assert(fb_mic_state() == FB_MIC_OFF);
+        fb_app_shutdown(startup);
+        free(startup);
+        fb_sock_platform_cleanup();
+        return 0;
+    }
+#endif
     FbConfig settings = {0};
     char *launch[] = {"fbdb", "--meeting", "--parakeet", "C:/tools with spaces/parakeet-cli.exe",
                       "--asr", "italian.gguf", "--llm-port", "18089", "--llm-model", "exact-model"};
@@ -164,6 +222,21 @@ int main(int argc, char **argv) {
     assert(fb_config_load(&reopened, "test-meeting-state") == 0);
     assert(reopened.meeting_capture_source == FB_CAPTURE_MICROPHONE);
     assert(fb_meeting_command(&app->meeting, "source both") == 1);
+    assert(fb_meeting_command(&app->meeting, "microphone default") == 0);
+    idle(&app->meeting);
+    assert(app->meeting.settings_dirty && !app->config.meeting_microphone[0]);
+    assert(fb_meeting_command(&app->meeting, "microphone nonexistent fixture microphone") == 0);
+    idle(&app->meeting);
+    assert(!app->config.meeting_microphone[0]);
+    assert(strstr(app->meeting.status, "unavailable"));
+    snprintf(app->config.meeting_microphone, 256, "Headset microphone");
+    snprintf(app->config.meeting_output_device, 256, "Headphones output");
+    assert(fb_config_save(&app->config, "test-meeting-state") == 0);
+    assert(fb_config_load(&reopened, "test-meeting-state") == 0);
+    assert(strcmp(reopened.meeting_microphone, "Headset microphone") == 0);
+    assert(strcmp(reopened.meeting_output_device, "Headphones output") == 0);
+    app->config.meeting_microphone[0] = 0;
+    app->config.meeting_output_device[0] = 0;
     key(app, FB_KEY_TAB, 0);
     assert(app->input_mode == FB_INPUT_MODE_SCRATCHPAD);
     key(app, FB_KEY_TAB, 0);
@@ -228,6 +301,7 @@ int main(int argc, char **argv) {
         assert(fb_meeting_command(&app->meeting, "new") == -1);
         app->meeting.asr_live = 1;
         assert(fb_meeting_command(&app->meeting, "cancel") == 0);
+        assert(!app->meeting.process_pending);
         assert(app->meeting.recording_finished && !app->meeting.paused);
         unsigned long long before = fb_now_ms();
         idle(&app->meeting);
@@ -271,28 +345,7 @@ int main(int argc, char **argv) {
     }
     if (argc == 4) {
         assert(fb_meeting_command(&app->meeting, "finish") == -1);
-        assert(fb_meeting_command(&app->meeting, "new") == 0);
-        idle(&app->meeting);
-        snprintf(app->meeting.tools.parakeet_library, 512, "%s", argv[3]);
-        snprintf(app->meeting.tools.asr_model, 512, "fixture");
-        snprintf(app->meeting.tools.diar_model, 512, "fixture");
-        char audio[700];
-        snprintf(audio, sizeof(audio), "%s/audio.wav", app->meeting.directory);
-        FbWavStream wav;
-        assert(fb_wav_stream_open(&wav, audio, 16000) == 0);
-        float *pcm = calloc(320000, sizeof(float));
-        assert(pcm);
-        assert(fb_wav_stream_append(&wav, pcm, 320000) == 0);
-        assert(fb_wav_stream_append(&wav, pcm, 80000) == 0);
-        assert(fb_wav_stream_close(&wav) == 0);
-        free(pcm);
-        app->meeting.asr_job = fb_meeting_job_start(FB_MEETING_JOB_LIVE, &app->meeting.tools,
-            app->meeting.directory, NULL, NULL, NULL, 0, NULL);
-        assert(app->meeting.asr_job);
-        app->meeting.asr_live = 1;
-        app->meeting.paused = 1;
-        fb_notepad_set(&app->meeting.notes, "Final notes are still editable after closing.");
-        app->meeting.command_focus = 0;
+        begin_fixture_live(app, argv[3]);
         key(app, FB_KEY_F6, 0);
         assert(app->meeting.recording_finished && !app->meeting.paused);
         assert(fb_meeting_command(&app->meeting, "finish") == -1);
@@ -302,6 +355,9 @@ int main(int argc, char **argv) {
         assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")) == 2);
         assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "report_current")));
         assert(app->meeting.report && app->meeting.output_kind == 2);
+        assert(app->meeting.operation == FB_MEETING_JOB_PROCESS);
+        resize(app, 120, 36);
+        save_screen("meeting-ui-closed.json");
         snprintf(path, sizeof(path), "%s/notes-used.txt", app->meeting.directory);
         saved = fb_read_file(path, NULL);
         assert(saved && strcmp(saved, app->meeting.notes.text) == 0);
@@ -312,6 +368,14 @@ int main(int argc, char **argv) {
         idle(&app->meeting);
         assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "report_current")));
         assert(fb_meeting_command(&app->meeting, "finish") == -1);
+        begin_fixture_live(app, argv[3]);
+        app->meeting.llm_port = 0;
+        assert(fb_meeting_command(&app->meeting, "process") == 0);
+        assert(app->meeting.finish_pending);
+        idle(&app->meeting);
+        assert(app->meeting.recording_finished && !app->meeting.job && !app->meeting.report);
+        assert(strstr(app->meeting.status, "meeting closed") && strstr(app->meeting.status, "/meeting process"));
+        assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")) == 2);
     }
     if (argc == 5 && strcmp(argv[1], "--live-hardware") == 0) {
         assert(fb_meeting_command(&app->meeting, "new") == 0);
@@ -380,18 +444,7 @@ int main(int argc, char **argv) {
     snprintf(app->meeting.status, sizeof(app->meeting.status), "notes saved locally; original transcript retained");
     fb_app_render(app);
     assert(app->meeting.output_width == 59);
-    FILE *screen = fopen("meeting-ui.json", "wb");
-    assert(screen);
-    fprintf(screen, "{\"width\":120,\"height\":36,\"cells\":[");
-    for (int y = 0; y < 36; ++y) {
-        for (int x = 0; x < 120; ++x) {
-            FbCell *cell = &cells[y][x];
-            fprintf(screen, "%s[%u,%u,%u,%u,%u,%u,%u]", x || y ? "," : "",
-                    cell->ch, cell->fg_r, cell->fg_g, cell->fg_b, cell->bg_r, cell->bg_g, cell->bg_b);
-        }
-    }
-    fprintf(screen, "]}");
-    fclose(screen);
+    save_screen("meeting-ui.json");
     key(app, FB_KEY_TAB, 0);
     assert(app->input_mode == FB_INPUT_MODE_COMMAND);
     fb_meeting_shutdown(&app->meeting);

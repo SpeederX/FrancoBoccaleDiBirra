@@ -40,7 +40,9 @@ int fb_meeting_launch_config(int argc, char **argv, FbConfig *config) {
             {"--diar", config->meeting_diar_model, sizeof(config->meeting_diar_model)},
             {"--ffmpeg", config->meeting_ffmpeg_exe, sizeof(config->meeting_ffmpeg_exe)},
             {"--llm-model", config->meeting_llm_model, sizeof(config->meeting_llm_model)},
-            {"--meeting-folder", config->meeting_folder, sizeof(config->meeting_folder)}
+            {"--meeting-folder", config->meeting_folder, sizeof(config->meeting_folder)},
+            {"--microphone", config->meeting_microphone, sizeof(config->meeting_microphone)},
+            {"--output-device", config->meeting_output_device, sizeof(config->meeting_output_device)}
         };
         int found = 0;
         for (size_t n = 0; n < sizeof(settings) / sizeof(settings[0]); ++n) {
@@ -62,6 +64,8 @@ static int capture_cli(int argc, char **argv) {
     const char *output = NULL;
     int seconds = 0;
     int resume = 0;
+    const char *microphone = NULL;
+    const char *output_device = NULL;
     FbCaptureSource source = FB_CAPTURE_SYSTEM;
     for (int i = 2; i < argc; ++i) {
         if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
@@ -76,6 +80,10 @@ static int capture_cli(int argc, char **argv) {
             seconds = (int)value;
         } else if (strcmp(argv[i], "--resume") == 0) {
             resume = 1;
+        } else if (strcmp(argv[i], "--microphone") == 0 && i + 1 < argc) {
+            microphone = argv[++i];
+        } else if (strcmp(argv[i], "--output-device") == 0 && i + 1 < argc) {
+            output_device = argv[++i];
         } else if (strcmp(argv[i], "--source") == 0 && i + 1 < argc) {
             const char *name = argv[++i];
             source = strcmp(name, "system") == 0 ? FB_CAPTURE_SYSTEM
@@ -103,7 +111,7 @@ static int capture_cli(int argc, char **argv) {
     if (existing && resume) {
         fclose(existing);
     }
-    FbSystemCapture *capture = fb_system_capture_start_source(output, source, resume);
+    FbSystemCapture *capture = fb_system_capture_start_devices(output, source, resume, output_device, microphone);
     if (!capture) {
         fprintf(stderr, "could not start recording\n");
         return 1;
@@ -136,6 +144,14 @@ static int capture_cli(int argc, char **argv) {
 }
 
 int fb_meeting_cli(int argc, char **argv) {
+    if (strcmp(argv[1], "--meeting-sources") == 0 && argc == 2) {
+        char sources[16384];
+        if (fb_system_capture_sources(sources, sizeof(sources)) != 0) {
+            return 1;
+        }
+        printf("%s", sources);
+        return 0;
+    }
     if (strcmp(argv[1], "--meeting-record") == 0) {
         return capture_cli(argc, argv);
     }

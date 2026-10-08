@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
         fb_sock_platform_cleanup();
         return 1;
     }
-    fb_app_init(app, fb_screen_width(), fb_screen_height());
+    fb_app_init_mode(app, fb_screen_width(), fb_screen_height(),
+        meeting_launch ? FB_INPUT_MODE_MEETING : FB_INPUT_MODE_COMMAND);
     if (meeting_launch) {
         fb_meeting_launch_config(argc, argv, &app->config);
         fb_meeting_shutdown(&app->meeting);

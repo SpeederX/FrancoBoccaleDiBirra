@@ -1,6 +1,7 @@
 import http.server
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -147,6 +148,7 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(Model.calls)
         self.assertTrue(all(r["model"] == "exact-fixture-model" for r in Model.calls))
+        shutil.copyfile(self.root / "meeting-ui-closed.json", pathlib.Path.cwd() / "meeting-ui-closed.json")
 
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell launch scripts")
     def test_windows_launcher_and_preparation_validation(self):
@@ -175,6 +177,12 @@ class Pipeline(unittest.TestCase):
         missing_model = run_script("start-meeting.ps1", *common, "-LlmPort", 18089)
         self.assertNotEqual(missing_model.returncode, 0)
         self.assertIn("Provide both", missing_model.stderr)
+        selected = run_script("start-meeting.ps1", *common, "-Microphone", "Headset microphone",
+                              "-OutputDevice", "Headphones output")
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        selection = json.loads(selected.stdout)
+        self.assertEqual(selection[selection.index("--microphone") + 1], "Headset microphone")
+        self.assertEqual(selection[selection.index("--output-device") + 1], "Headphones output")
         (assets / "parakeet-win-cpu.zip").write_bytes(b"wrong archive")
         bad_hash = run_script("prepare-meeting.ps1", "-AssetsDirectory", assets)
         self.assertNotEqual(bad_hash.returncode, 0)

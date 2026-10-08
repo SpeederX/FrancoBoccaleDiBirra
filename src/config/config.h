@@ -33,6 +33,8 @@ typedef struct {
     char meeting_folder[512];
     char meeting_parakeet_library[512];
     int meeting_capture_source;
+    char meeting_microphone[256];
+    char meeting_output_device[256];
     int meeting_llm_port;
 
     /* Diary mode's page/memory thresholds -- 0 means "use the built-in

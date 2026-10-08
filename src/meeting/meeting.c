@@ -171,6 +171,8 @@ static void help(FbMeeting *meeting) {
         "/meeting setup ffmpeg <executable path>\n"
         "/meeting model <port> <model-id> select localhost LLM\n"
         "/meeting sources             list available system/microphone devices\n"
+        "/meeting microphone <number or full name> select input; default follows Windows\n"
+        "/meeting output <number or full name>     select system output to record\n"
         "/meeting source system|microphone|both  choose audio (default both)\n"
         "/meeting record              start/resume the selected audio sources\n"
         "/meeting stop                pause audio; session stays ready to resume\n"
@@ -184,7 +186,7 @@ static void help(FbMeeting *meeting) {
         "/meeting save                save current notes\n"
         "/meeting cancel              end capture and cancel jobs; retain audio/notes\n\n"
         "Paths may contain spaces; quotes around the entire path are optional.\n"
-        "Both mixes system output and your microphone; choose either source separately.\n"
+        "Both mixes the selected system output and microphone; choose either source separately.\n"
         "Diarization supports up to eight voices; unknown speech remains unattributed.\n"
         "With a selected LLM, names update from introductions or clear addressed-name/reply pairs.\n"
         "All LLM requests go to localhost. Notes used by a report are snapshotted.\n"
@@ -401,7 +403,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         snprintf(audio, sizeof(audio), "%s/audio.wav", meeting->directory);
         unsigned long long size;
         int exists = fb_file_size(audio, &size);
-        if (meeting->capture || meeting->recording_finished ||
+        if (meeting->capture || meeting->devices_job || meeting->recording_finished ||
             (meeting->asr_job && !meeting->asr_live) ||
             (meeting->job && meeting->operation == FB_MEETING_JOB_OPEN) ||
             (exists && (!meeting->asr_job || !meeting->asr_live))) {
@@ -412,7 +414,8 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
             snprintf(meeting->status, sizeof(meeting->status), "configure the Parakeet streaming library first: /meeting setup library <path>");
             return -1;
         }
-        meeting->capture = fb_system_capture_start_source(audio, meeting->source, exists);
+        meeting->capture = fb_system_capture_start_devices(audio, meeting->source, exists,
+            meeting->config->meeting_output_device, meeting->config->meeting_microphone);
         if (meeting->capture && !meeting->asr_job && start_job(meeting, FB_MEETING_JOB_LIVE, NULL) != 0) {
             fb_system_capture_free(meeting->capture);
             meeting->capture = NULL;
@@ -450,13 +453,31 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return 0;
     }
     if (strcmp(verb, "sources") == 0 && !*arguments) {
-        char sources[8192];
-        if (fb_system_capture_sources(sources, sizeof(sources)) != 0) {
-            snprintf(meeting->status, sizeof(meeting->status), "could not enumerate audio sources");
+        if (meeting->devices_job) {
             return -1;
         }
-        show_text(meeting, sources);
-        return 0;
+        meeting->selecting_device = 0;
+        meeting->devices_job = fb_audio_devices_start(0, NULL);
+        snprintf(meeting->status, sizeof(meeting->status), "listing audio devices; notes remain editable");
+        return meeting->devices_job ? 0 : -1;
+    }
+    if (strcmp(verb, "microphone") == 0 || strcmp(verb, "output") == 0) {
+        FbCaptureSource source = strcmp(verb, "microphone") == 0 ? FB_CAPTURE_MICROPHONE : FB_CAPTURE_SYSTEM;
+        const char *current = source == FB_CAPTURE_MICROPHONE
+            ? meeting->config->meeting_microphone : meeting->config->meeting_output_device;
+        if (!*path) {
+            snprintf(meeting->status, sizeof(meeting->status), "%s: %s | /meeting sources lists choices", verb,
+                current[0] ? current : "Windows default");
+            return 0;
+        }
+        if (meeting->capture || meeting->devices_job) {
+            snprintf(meeting->status, sizeof(meeting->status), "pause recording and wait for device selection before changing a device");
+            return -1;
+        }
+        meeting->selecting_device = source;
+        meeting->devices_job = fb_audio_devices_start(source, path);
+        snprintf(meeting->status, sizeof(meeting->status), "checking the selected device; notes remain editable");
+        return meeting->devices_job ? 0 : -1;
     }
     if (strcmp(verb, "source") == 0) {
         FbCaptureSource source = strcmp(arguments, "system") == 0 ? FB_CAPTURE_SYSTEM
@@ -655,6 +676,32 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
 }
 
 void fb_meeting_tick(FbMeeting *meeting) {
+    if (meeting->devices_job) {
+        FbAudioDeviceStatus status;
+        fb_audio_devices_poll(meeting->devices_job, &status);
+        if (status.done) {
+            if (status.success && meeting->selecting_device) {
+                char *setting = meeting->selecting_device == FB_CAPTURE_MICROPHONE
+                    ? meeting->config->meeting_microphone : meeting->config->meeting_output_device;
+                snprintf(setting, 256, "%s", status.name);
+                meeting->settings_dirty = 1;
+                snprintf(meeting->status, sizeof(meeting->status), "%s selected: %s; applies on next record/resume",
+                    meeting->selecting_device == FB_CAPTURE_MICROPHONE ? "microphone" : "output",
+                    setting[0] ? setting : "Windows default");
+            } else if (status.success) {
+                char text[17408];
+                snprintf(text, sizeof(text), "Selected microphone: %s\nSelected output: %s\n\n%s",
+                    meeting->config->meeting_microphone[0] ? meeting->config->meeting_microphone : "Windows default",
+                    meeting->config->meeting_output_device[0] ? meeting->config->meeting_output_device : "Windows default",
+                    status.text);
+                show_text(meeting, text);
+            } else {
+                snprintf(meeting->status, sizeof(meeting->status), "%s", status.text);
+            }
+            fb_audio_devices_free(meeting->devices_job);
+            meeting->devices_job = NULL;
+        }
+    }
     if (meeting->save_job) {
         FbMeetingJobStatus status;
         fb_meeting_job_poll(meeting->save_job, &status);
@@ -791,6 +838,7 @@ void fb_meeting_tick(FbMeeting *meeting) {
                 free(meeting->report);
                 meeting->report = fb_read_file(path, NULL);
                 if (meeting->operation == FB_MEETING_JOB_PROCESS) {
+                    meeting->identity_done = meeting->identifying_total;
                     meeting->output_kind = 2;
                     meeting->output_follow = 0;
                     meeting->output.scroll = 0;
@@ -875,6 +923,7 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
 }
 
 void fb_meeting_shutdown(FbMeeting *meeting) {
+    fb_audio_devices_free(meeting->devices_job);
     if (meeting->capture) {
         fb_system_capture_free(meeting->capture);
     }

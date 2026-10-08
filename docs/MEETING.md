@@ -61,7 +61,7 @@ An already-running llama.cpp endpoint can be selected at launch:
 
 The script does not start or download an LLM. Plain `fbdb --meeting` uses saved
 settings. CLI overrides `--parakeet`, `--library`, `--asr`, `--diar`, `--ffmpeg`,
-`--meeting-folder`, `--llm-port` and `--llm-model` apply to that session;
+`--meeting-folder`, `--microphone`, `--output-device`, `--llm-port` and `--llm-model` apply to that session;
 `/meeting setup`, `/meeting folder`, `/meeting source` and `/meeting model`
 save settings in the app's config file.
 
@@ -73,9 +73,21 @@ Use `/meeting sources` to list the available devices, then select:
 /meeting source microphone
 ```
 
-The selected source uses Windows' default output and/or microphone. To choose a
-different physical device, change the default in Windows audio settings. Pause
-before changing sources; the selection applies on the next start or resume.
+Use `/meeting microphone <number or full device name>` to choose the headset input
+from the numbered microphone list. `/meeting output <number or full device name>`
+chooses the system output to capture. Pause before changing a device; the choice
+applies on the next start or resume. Enumeration and selection run in background
+jobs, so notes stay editable.
+
+Selections save the full device name in Franco's config. The saved name resolves
+to the hardware ID when recording starts; list numbers are only selection aids.
+If that device is unavailable, recording reports an error and asks you to select
+again. `default` follows Windows' default device. Use either command without an
+argument to see the selected device. The launcher accepts `-Microphone` and
+`-OutputDevice` with full device names for session overrides. Starting with
+`--meeting` leaves the other modes' microphone closed; Meeting opens its selected
+devices when you start recording.
+
 Both sources are mixed into one mono recording; individual tracks are not saved.
 With speakers instead of headphones, microphone pickup can duplicate remote audio.
 
@@ -180,6 +192,12 @@ up to 2000 lines; the complete exported files remain available on disk.
   transcript and report separately. The original ASR output is preserved.
 - Notes and long transcript processing use background jobs. Long inputs are
   processed in bounded parts rather than cut off to fit a chat turn.
+- The Windows renderer follows the visible viewport and draws changed rows.
+  It uses the documented [alternate console buffer](https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#alternate-screen-buffer)
+  instead of changing the host window in response to resize events. Regression
+  tests cover stale buffer-size events and eight real ConPTY resize geometries,
+  including rendering the final cell. Meeting layout fixtures cover following
+  live text, paging earlier text, rewrapping, and reviewing notes after closure.
 
 ## Upstream qualification
 

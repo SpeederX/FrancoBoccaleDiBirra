@@ -2,6 +2,7 @@
 #define FB_MEETING_H
 
 #include "audio/system_capture.h"
+#include "audio/device_selection.h"
 #include "config/config.h"
 #include "meeting/meeting_job.h"
 #include "tui/widget_cmdline.h"
@@ -30,6 +31,9 @@ typedef struct {
     int identifying_total;
     size_t processing_revision;
     FbCaptureSource source;
+    FbAudioDeviceJob *devices_job;
+    FbCaptureSource selecting_device;
+    int settings_dirty;
     FbMeetingOperation operation;
     FbMeetingJob *save_job;
     size_t saving_revision;

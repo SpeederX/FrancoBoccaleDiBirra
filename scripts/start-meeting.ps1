@@ -6,6 +6,8 @@ param(
     [ValidateRange(0, 65535)][int]$LlmPort = 0,
     [string]$LlmModel,
     [string]$MeetingFolder,
+    [string]$Microphone,
+    [string]$OutputDevice,
     [switch]$PrintCommand
 )
 
@@ -27,6 +29,12 @@ if (($LlmPort -gt 0) -ne [bool]$LlmModel) {
 $launchArguments = @('--meeting', '--parakeet', $parakeet, '--library', $library, '--asr', $asr, '--diar', $diar, '--ffmpeg', $FFmpeg)
 if ($MeetingFolder) {
     $launchArguments += @('--meeting-folder', $MeetingFolder)
+}
+if ($Microphone) {
+    $launchArguments += @('--microphone', $Microphone)
+}
+if ($OutputDevice) {
+    $launchArguments += @('--output-device', $OutputDevice)
 }
 if ($LlmPort) {
     $launchArguments += @('--llm-port', $LlmPort.ToString(), '--llm-model', $LlmModel)
