@@ -41,12 +41,16 @@ and the report; it receives text, not audio. Qwen is not required for ASR.
    Assign or correct a name with `/meeting name 1 Alice Smith`, including while
    recording or processing. User names take priority over inferred names.
 5. Select the local LLM with `/meeting model <port> <exact-model-id>` and run
-   `/meeting process`. A model loaded through the app's `/load` command can also
+   F6 (or `/meeting finish`) when the meeting ends. The last speech is transcribed
+   before cleanup and the report start. A model loaded through the app's `/load` command can also
    be selected automatically for processing. With a selected LLM, new transcript
    text also triggers name identification from introductions or clear addressed
    names and replies. `/meeting identify` retries that step. Use F9 to cycle outputs.
-   For a complete final report, run `/meeting finish`, wait for transcription to
-   finish, then `/meeting process`.
+   Closing keeps the notes editable and displays the report when ready. With no
+   selected LLM, the meeting still closes and retains everything; select a model
+   and run `/meeting process` later. That command also regenerates a report after
+   editing notes or names. During live capture it closes the meeting first; during
+   an import it queues processing after transcription.
 6. Use `/meeting list`, then `/meeting open <full folder path>` to reopen a meeting.
 
 An already-running llama.cpp endpoint can be selected at launch:
@@ -75,8 +79,10 @@ before changing sources; the selection applies on the next start or resume.
 Both sources are mixed into one mono recording; individual tracks are not saved.
 With speakers instead of headphones, microphone pickup can duplicate remote audio.
 
-`/meeting stop` pauses, like Ctrl+Space. `/meeting finish` closes the session and
-flushes the last speech. Parakeet keeps some context pending, so a short tail can
+`/meeting stop` pauses, like Ctrl+Space. F6 and `/meeting finish` close the session,
+flush the last speech, then process the completed transcript and current notes
+with the selected LLM. The app stays in Meeting so you can review/edit notes and
+cycle outputs with F9. Parakeet keeps some context pending, so a short tail can
 remain until resuming or finishing; 20 seconds is the maximum input block size,
 not a guaranteed display latency. Finalized sessions need a new meeting for
 another recording. Paused sessions can resume while the app remains open.
@@ -138,8 +144,8 @@ enrollment or identity recognition between meetings.
 `/meeting process` uses a snapshot of the transcript and notes available when it
 starts. It corrects punctuation/obvious transcription errors into
 `transcript-clean.txt`, then writes a separate summary, decisions and action items
-to `report.md`. The original transcript is retained. During live recording, it
-processes completed utterances only; later speech or edited names/notes require
+to `report.md`. The original transcript is retained. Processing waits for final
+transcription; later edited names/notes mark the report out of date and require
 processing again. Identification alone changes names, without cleaning text or
 creating a report.
 

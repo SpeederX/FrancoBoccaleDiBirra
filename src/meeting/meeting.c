@@ -155,6 +155,7 @@ static void help(FbMeeting *meeting) {
         "MEETING\n"
         "Type in Notes; Enter creates a new line. F8 switches to commands.\n"
         "Ctrl+Space starts, pauses and resumes the SAME meeting.\n"
+        "F6 closes the meeting, completes transcription, then creates the report.\n"
         "Audio is transcribed in blocks up to 20s and shown here as it arrives.\n"
         "F9 cycles original transcript, cleaned transcript, and report.\n"
         "Report uses notes-used.txt; notes edited afterwards need /meeting process again.\n"
@@ -173,7 +174,7 @@ static void help(FbMeeting *meeting) {
         "/meeting source system|microphone|both  choose audio (default both)\n"
         "/meeting record              start/resume the selected audio sources\n"
         "/meeting stop                pause audio; session stays ready to resume\n"
-        "/meeting finish              end recording and flush the final transcript tail\n"
+        "/meeting finish              close, flush final speech, then create report (F6)\n"
         "/meeting import <file path>  import audio/video into a fresh meeting\n"
         "/meeting transcribe          retry ASR on retained audio.wav\n"
         "/meeting process             clean transcript and create report\n"
@@ -241,6 +242,7 @@ static int new_meeting(FbMeeting *meeting) {
     meeting->paused = 0;
     meeting->recording_finished = 0;
     meeting->finish_pending = 0;
+    meeting->process_pending = 0;
     meeting->identity_done = 0;
     free(meeting->report);
     meeting->report = NULL;
@@ -431,11 +433,12 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return 0;
     }
     if (strcmp(verb, "finish") == 0 && !*arguments) {
-        if (!meeting->asr_job || !meeting->asr_live) {
-            snprintf(meeting->status, sizeof(meeting->status), "no live session to finish");
+        if (!meeting->asr_job || !meeting->asr_live || meeting->finish_pending) {
+            snprintf(meeting->status, sizeof(meeting->status), "no open live meeting to finish; /meeting process updates a closed meeting");
             return -1;
         }
         meeting->finish_pending = 1;
+        meeting->process_pending = 1;
         if (meeting->capture) {
             fb_system_capture_stop(meeting->capture);
         } else {
@@ -443,7 +446,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
             meeting->recording_finished = 1;
             meeting->paused = 0;
         }
-        snprintf(meeting->status, sizeof(meeting->status), "finishing the Parakeet session and final speech tail");
+        snprintf(meeting->status, sizeof(meeting->status), "closing audio; completing final speech before the report; notes stay editable");
         return 0;
     }
     if (strcmp(verb, "sources") == 0 && !*arguments) {
@@ -475,6 +478,14 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return start_job(meeting, FB_MEETING_JOB_TRANSCRIBE, path);
     }
     if (strcmp(verb, "process") == 0 && !*arguments) {
+        if (meeting->asr_job) {
+            if (meeting->asr_live && !meeting->finish_pending) {
+                return fb_meeting_command(meeting, "finish");
+            }
+            meeting->process_pending = 1;
+            snprintf(meeting->status, sizeof(meeting->status), "report queued after transcription completes; notes remain editable");
+            return 0;
+        }
         return start_job(meeting, FB_MEETING_JOB_PROCESS, NULL);
     }
     if (strcmp(verb, "identify") == 0 && !*arguments) {
@@ -518,6 +529,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return start_save(meeting);
     }
     if (strcmp(verb, "cancel") == 0 && !*arguments && (meeting->job || meeting->asr_job)) {
+        meeting->process_pending = 0;
         if (meeting->job) {
             fb_meeting_job_cancel(meeting->job);
         }
@@ -592,6 +604,10 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
         meeting->command_focus = !meeting->command_focus;
         return 1;
     }
+    if (event->key == FB_KEY_F6) {
+        fb_meeting_command(meeting, "finish");
+        return 1;
+    }
     if (event->key == FB_KEY_F9) {
         meeting->output_kind = (meeting->output_kind + 1) % 3;
         meeting->output_follow = meeting->output_kind != 2;
@@ -623,6 +639,13 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
         int changed = fb_notepad_handle_event(&meeting->notes, event);
         if (changed > 0) {
             meeting->edited_ms = fb_now_ms();
+            cJSON *current = cJSON_GetObjectItemCaseSensitive(meeting->document, "report_current");
+            if (cJSON_IsTrue(current)) {
+                cJSON_DeleteItemFromObjectCaseSensitive(meeting->document, "report_current");
+                cJSON_AddBoolToObject(meeting->document, "report_current", 0);
+                meeting->document_dirty = 1;
+                refresh_output(meeting);
+            }
         } else if (changed < 0) {
             snprintf(meeting->status, sizeof(meeting->status), "could not allocate space for more notes");
         }
@@ -668,6 +691,7 @@ void fb_meeting_tick(FbMeeting *meeting) {
                 fb_meeting_job_audio_boundary(meeting->asr_job, meeting->finish_pending);
             }
             if (!success) {
+                meeting->process_pending = 0;
                 snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->capture_status.error);
             } else {
                 snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->paused
@@ -688,6 +712,9 @@ void fb_meeting_tick(FbMeeting *meeting) {
             refresh_output(meeting);
         }
         if (status.state != FB_MEETING_JOB_RUNNING) {
+            if (status.state != FB_MEETING_JOB_DONE) {
+                meeting->process_pending = 0;
+            }
             if (meeting->asr_live && meeting->capture) {
                 meeting->finish_pending = 1;
                 fb_system_capture_stop(meeting->capture);
@@ -763,6 +790,12 @@ void fb_meeting_tick(FbMeeting *meeting) {
                 snprintf(path, sizeof(path), "%s/report.md", meeting->directory);
                 free(meeting->report);
                 meeting->report = fb_read_file(path, NULL);
+                if (meeting->operation == FB_MEETING_JOB_PROCESS) {
+                    meeting->output_kind = 2;
+                    meeting->output_follow = 0;
+                    meeting->output.scroll = 0;
+                    meeting->output_offsets[0] = 0;
+                }
             }
             snprintf(meeting->status, sizeof(meeting->status), "%s", status.state == FB_MEETING_JOB_CANCELLED
                        ? "meeting job cancelled; retained files and notes remain available" : status.message);
@@ -772,7 +805,17 @@ void fb_meeting_tick(FbMeeting *meeting) {
         }
     }
     int total = cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(meeting->document, "utterances"));
-    if (!meeting->job && meeting->llm_port > 0 && meeting->llm_model[0] &&
+    if (meeting->process_pending && !meeting->capture && !meeting->asr_job && !meeting->job && !meeting->save_job) {
+        meeting->process_pending = 0;
+        if (total == 0) {
+            snprintf(meeting->status, sizeof(meeting->status), "meeting closed; no transcribed speech to summarize; notes remain editable");
+        } else if (meeting->llm_port < 1 || !meeting->llm_model[0]) {
+            snprintf(meeting->status, sizeof(meeting->status), "meeting closed; select /meeting model <port> <id>, then /meeting process for the report");
+        } else {
+            start_job(meeting, FB_MEETING_JOB_PROCESS, NULL);
+        }
+    }
+    if (!meeting->process_pending && !meeting->job && meeting->llm_port > 0 && meeting->llm_model[0] &&
         total > meeting->identity_done && !meeting->save_job) {
         start_job(meeting, FB_MEETING_JOB_IDENTIFY, NULL);
     }
@@ -807,10 +850,12 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
                  FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     char state[256];
     if (meeting->capture) {
-        snprintf(state, sizeof(state), "REC %.1fs | %s | Ctrl+Space pauses",
+        snprintf(state, sizeof(state), "REC %.1fs | Ctrl+Space pauses | F6 finishes | %s",
                  (double)meeting->capture_status.frames / 16000.0, meeting->capture_status.device_name);
     } else if (meeting->paused && meeting->asr_job) {
-        snprintf(state, sizeof(state), "PAUSED | Ctrl+Space resumes | /meeting finish flushes tail | F8 commands | F9 outputs");
+        snprintf(state, sizeof(state), "PAUSED | Ctrl+Space resumes | F6 closes and creates report | F8 commands | F9 outputs");
+    } else if (meeting->recording_finished) {
+        snprintf(state, sizeof(state), "CLOSED | notes remain editable | F8 commands | /meeting process updates report | F9 outputs | F7 new");
     } else {
         snprintf(state, sizeof(state), "F1 help | F8 notes/commands | F9 outputs | PgUp/PgDn | Tab modes | F10 quit");
     }

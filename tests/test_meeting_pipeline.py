@@ -11,6 +11,7 @@ import unittest
 BINARY = pathlib.Path(sys.argv[1]).resolve()
 TOOL = pathlib.Path(sys.argv[2]).resolve()
 UI = pathlib.Path(sys.argv[3]).resolve()
+LIBRARY = pathlib.Path(sys.argv[4]).resolve()
 sys.argv = [sys.argv[0]]
 
 
@@ -29,7 +30,8 @@ class Model(http.server.BaseHTTPRequestHandler):
             text = json.dumps({
                 "utterances": [{"id": u["id"], "text": u["text"]} for u in part["utterances"]],
                 "introductions": [{"speaker": 1, "name": "Alice", "utterance": 1,
-                                   "quote": "My name is Alice"}],
+                                   "quote": "My name is Alice"}]
+                    if "My name is Alice" in part["utterances"][0]["text"] else [],
             })
             if "Mario," in part["utterances"][0]["text"]:
                 text = json.dumps({
@@ -139,7 +141,7 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(audio.read_bytes(), b"prior audio")
 
     def test_dynamic_names_in_ui_and_manual_override(self):
-        result = subprocess.run([str(UI), str(TOOL), str(self.server.server_port)],
+        result = subprocess.run([str(UI), str(TOOL), str(self.server.server_port), str(LIBRARY)],
                                 cwd=self.root, capture_output=True, text=True,
                                 encoding="utf-8", timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)

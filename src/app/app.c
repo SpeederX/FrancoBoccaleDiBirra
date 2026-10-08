@@ -782,6 +782,10 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
             return 0;
         }
         if (ev->key == FB_KEY_F6) {
+            if (app->input_mode == FB_INPUT_MODE_MEETING) {
+                fb_meeting_handle_event(&app->meeting, ev);
+                return 0;
+            }
             FbCommand cmd;
             memset(&cmd, 0, sizeof(cmd));
             cmd.kind = FB_CMD_LIST;

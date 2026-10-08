@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "app/app.h"
+#include "audio/wav_stream.h"
 #include "meeting/meeting_document.h"
 #include "meeting/meeting_cli.h"
 #include "net/sockets_compat.h"
@@ -66,6 +67,7 @@ static void resize(FbApp *app, int width, int height) {
 
 static void test_transcript_viewport(FbApp *app) {
     app->meeting.llm_port = 0;
+    size_t notes_revision = app->meeting.notes.revision;
     cJSON_Delete(app->meeting.document);
     char error[256];
     app->meeting.document = fb_meeting_document_parse(
@@ -116,7 +118,7 @@ static void test_transcript_viewport(FbApp *app) {
     resize(app, 120, 36);
     assert(app->meeting.output.scroll == app->meeting.output.count - visible);
     assert(strstr(app->meeting.output.lines[app->meeting.output.count - 1], "latest transcript"));
-    assert(strstr(app->meeting.notes.text, "Friday"));
+    assert(app->meeting.notes.revision == notes_revision);
 }
 
 int main(int argc, char **argv) {
@@ -236,7 +238,7 @@ int main(int argc, char **argv) {
         idle(&app->meeting);
         key(app, FB_KEY_F8, 0);
     }
-    if (argc == 3) {
+    if (argc >= 3 && strcmp(argv[1], "--live-hardware") != 0) {
         cJSON_Delete(app->meeting.document);
         app->meeting.document = fb_meeting_document_parse(
             "{\"utterances\":[{\"speaker\":3,\"text\":\"Mario, puoi mandare il documento?\",\"start\":0,\"end\":2},"
@@ -266,6 +268,50 @@ int main(int argc, char **argv) {
         spoken = cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances");
         assert(strcmp(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(spoken, 1), "cleaned")->valuestring,
                       "Sì, lo invio domani.") == 0);
+    }
+    if (argc == 4) {
+        assert(fb_meeting_command(&app->meeting, "finish") == -1);
+        assert(fb_meeting_command(&app->meeting, "new") == 0);
+        idle(&app->meeting);
+        snprintf(app->meeting.tools.parakeet_library, 512, "%s", argv[3]);
+        snprintf(app->meeting.tools.asr_model, 512, "fixture");
+        snprintf(app->meeting.tools.diar_model, 512, "fixture");
+        char audio[700];
+        snprintf(audio, sizeof(audio), "%s/audio.wav", app->meeting.directory);
+        FbWavStream wav;
+        assert(fb_wav_stream_open(&wav, audio, 16000) == 0);
+        float *pcm = calloc(320000, sizeof(float));
+        assert(pcm);
+        assert(fb_wav_stream_append(&wav, pcm, 320000) == 0);
+        assert(fb_wav_stream_append(&wav, pcm, 80000) == 0);
+        assert(fb_wav_stream_close(&wav) == 0);
+        free(pcm);
+        app->meeting.asr_job = fb_meeting_job_start(FB_MEETING_JOB_LIVE, &app->meeting.tools,
+            app->meeting.directory, NULL, NULL, NULL, 0, NULL);
+        assert(app->meeting.asr_job);
+        app->meeting.asr_live = 1;
+        app->meeting.paused = 1;
+        fb_notepad_set(&app->meeting.notes, "Final notes are still editable after closing.");
+        app->meeting.command_focus = 0;
+        key(app, FB_KEY_F6, 0);
+        assert(app->meeting.recording_finished && !app->meeting.paused);
+        assert(fb_meeting_command(&app->meeting, "finish") == -1);
+        idle(&app->meeting);
+        assert(app->input_mode == FB_INPUT_MODE_MEETING && app->running);
+        assert(!app->meeting.command_focus);
+        assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")) == 2);
+        assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "report_current")));
+        assert(app->meeting.report && app->meeting.output_kind == 2);
+        snprintf(path, sizeof(path), "%s/notes-used.txt", app->meeting.directory);
+        saved = fb_read_file(path, NULL);
+        assert(saved && strcmp(saved, app->meeting.notes.text) == 0);
+        free(saved);
+        type(app, " Added after the report.");
+        assert(cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "report_current")));
+        assert(fb_meeting_command(&app->meeting, "process") == 0);
+        idle(&app->meeting);
+        assert(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "report_current")));
+        assert(fb_meeting_command(&app->meeting, "finish") == -1);
     }
     if (argc == 5 && strcmp(argv[1], "--live-hardware") == 0) {
         assert(fb_meeting_command(&app->meeting, "new") == 0);

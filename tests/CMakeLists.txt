@@ -21,7 +21,8 @@ find_package(Python3 QUIET COMPONENTS Interpreter)
 if (Python3_FOUND)
     add_test(NAME meeting_pipeline COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_pipeline.py
-        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:test_meeting_ui>)
+        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:test_meeting_ui>
+        $<TARGET_FILE:meeting_parakeet_fixture>)
 endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)

@@ -24,6 +24,7 @@ typedef struct {
     int asr_live;
     int paused;
     int finish_pending;
+    int process_pending;
     int recording_finished;
     int identity_done;
     int identifying_total;
