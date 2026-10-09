@@ -67,6 +67,48 @@ I dati restano nella cartella scelta. `meetings/` e `build/` sono esclusi da Git
 se scegli un altro percorso, tieni il corpus fuori dai file versionati.
 Il banco prova non attiva registrazioni o microfoni.
 
+## Corpus locale e analisi delle differenze
+
+`tests/local/meeting-asr/` è la posizione prevista per conservare campioni
+privati nella copia locale del repository. La cartella intera è esclusa da
+Git: audio originali, WAV convertiti, riferimenti, manifest e report con
+estratti del parlato rimangono locali. Anche gli M4A e i `*_ref.txt` in `docs/`
+sono esclusi. Gli strumenti, il protocollo e le statistiche aggregate possono
+essere versionati senza includere i campioni.
+
+Il corpus usa il manifest descritto nel
+[runner di confronto fra motori](MEETING_ASR_BENCHMARK.md). I casi con
+`scored: false` permettono di misurare tempo e memoria senza attribuire
+accuratezza a un riferimento assente o non verificato. Conserva gli originali
+e registra qualsiasi trasformazione del riferimento nel manifest, per esempio
+la rimozione delle sole etichette speaker all'inizio delle righe. Le parole
+pronunciate, comprese ripetizioni e intercalari, rimangono nel riferimento.
+
+Per esaminare output già prodotti, senza rieseguire ASR o inviare dati:
+
+```powershell
+python .\scripts\meeting_error_audit.py --manifest 'PERCORSO_CORPUS\benchmark-20261009\audit-manifest.json' --output 'PERCORSO_CORPUS\audit-nuovo'
+```
+
+Il manifest contiene `cases`, con ID e identità SHA256/byte dei riferimenti,
+e `models`, con ID, etichetta, indicazione `primary` e casi associati. Ogni
+caso del modello specifica l'identità del file `hypothesis` e `expected_words`,
+cioè i conteggi WER salvati nel report originale. Tutti i modelli devono
+confrontare gli stessi riferimenti verificati.
+
+Lo strumento controlla hash e conteggi, usa la normalizzazione del benchmark
+e produce `differences.md` e `differences.json` in una cartella nuova. Mostra
+sostituzioni, omissioni e aggiunte per modello e campione, con il contesto del
+riferimento. L'allineamento minimizza gli edit; a parità di distanza preferisce
+sostituzioni, poi omissioni, poi aggiunte, come il calcolo WER esistente.
+Più edit adiacenti possono comparire nella stessa riga. Questi report
+contengono testo personale e appartengono alla cartella privata.
+
+Le differenze dal TXT includono anche grafie alternative e intercalari, non
+soltanto parole riconosciute male. Per decidere se correggere un riferimento
+bisogna riascoltare l'audio; una correzione crea una nuova baseline e non
+modifica retroattivamente il punteggio del benchmark precedente.
+
 ## Confronto e regressioni
 
 ```powershell

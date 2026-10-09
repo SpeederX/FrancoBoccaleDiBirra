@@ -31,6 +31,8 @@ if (Python3_FOUND)
         $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:meeting_parakeet_fixture>)
     add_test(NAME meeting_benchmark COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_benchmark.py)
+    add_test(NAME meeting_error_audit COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_error_audit.py)
 endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)

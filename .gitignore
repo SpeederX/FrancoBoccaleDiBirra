@@ -9,3 +9,8 @@ CMakeUserPresets.json
 .claude/
 __pycache__/
 meetings/
+
+# Local ASR recordings, references and detailed transcript audits.
+/tests/local/meeting-asr/
+/docs/*.m4a
+/docs/*_ref.txt
