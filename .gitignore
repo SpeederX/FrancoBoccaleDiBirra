@@ -7,3 +7,5 @@ out/
 *.ilk
 CMakeUserPresets.json
 .claude/
+__pycache__/
+meetings/

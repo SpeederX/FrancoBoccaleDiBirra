@@ -5,6 +5,9 @@ speaker-attributed transcript, and a separate meeting report. The report contain
 a summary, decisions, and action items. Audio, notes, and outputs are retained
 locally, as requested. Meeting data is not added to diary memory.
 
+For repeatable live/offline ASR comparisons, checked audio samples and regression
+baselines, see [Sample e confronti della trascrizione](MEETING_ASR_TESTS.md).
+
 ## Start and use Meeting
 
 Build and prepare the local transcription tools once on Windows:

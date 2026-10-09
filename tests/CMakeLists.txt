@@ -23,6 +23,9 @@ if (Python3_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_pipeline.py
         $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:test_meeting_ui>
         $<TARGET_FILE:meeting_parakeet_fixture>)
+    add_test(NAME meeting_eval COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_eval.py
+        $<TARGET_FILE:fbdb> $<TARGET_FILE:meeting_tool_fixture> $<TARGET_FILE:meeting_parakeet_fixture>)
 endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
