@@ -8,7 +8,11 @@ dopo l'inferenza. Audio e testi vengono elaborati localmente.
 
 ## Motori e ambiente
 
-- `parakeet`: libreria CPU di parakeet.cpp v0.6.1, C ABI 10, più NumPy.
+- `parakeet`: libreria di parakeet.cpp v0.6.1, C ABI 10, più NumPy.
+  Scegliere il pacchetto DLL CPU oppure CUDA. La variante CUDA richiede le DLL
+  redistribuibili CUDA della release accanto a `parakeet.dll`; usa il dispositivo
+  scelto dal backend della libreria. Il campo `device` descrive la variante nel
+  rapporto, senza trasformare una DLL CPU in una DLL CUDA.
 - `whisper`: faster-whisper/CTranslate2; CPU INT8 oppure CUDA FP16/INT8-FP16.
 - `qwen`: pacchetto ufficiale `qwen-asr`, CUDA FP16, attenzione eager.
 - `canary`: Transformers con supporto nativo Canary, CUDA FP16, attenzione SDPA.
@@ -19,6 +23,12 @@ preparati prima del confronto; fornire percorsi locali dei checkpoint. Su
 Windows il runner Whisper cerca le DLL CUDA nella cartella `torch/lib`
 dell'ambiente virtuale. Versioni, hash, configurazione e identità del runner
 sono conservati nel rapporto.
+
+Su Windows il runner conserva il runtime OpenMP per la durata del processo e
+libera esplicitamente la DLL Parakeet dopo il contesto ASR. Questo evita lo
+scaricamento del runtime mentre i worker sono attivi e permette ai buffer CUDA
+globali di essere liberati prima della chiusura del driver. Le prove A/B del
+9 ottobre sono descritte nel [rapporto dei risultati](MEETING_ASR_RESULTS_20261009.md).
 
 ## Manifest del corpus
 
@@ -89,6 +99,9 @@ essere calda. Il tempo per clip copre l'inferenza e il completamento CUDA,
 escludendo lettura del WAV, scoring e scrittura dei risultati. RTF è il rapporto
 fra tempo di inferenza e durata dell'audio: meno di 1 significa più veloce del
 tempo reale, senza misurare la latenza dell'interfaccia di Meeting.
+Alcuni backend inizializzano pesi o kernel al primo uso: quel lavoro ricade nel
+tempo della prima inferenza. Il caricamento da solo non rappresenta quindi il
+tempo necessario per vedere la prima trascrizione.
 
 La RAM è il picco residente dell'intero processo Python, compresi import e
 caricamento. La VRAM è il consumo dell'intera GPU campionato ogni 100 ms tramite

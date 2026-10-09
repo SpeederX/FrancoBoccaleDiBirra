@@ -1,0 +1,3951 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-09",
+  "hardware": {
+    "cpu": "AMD Ryzen 5 2600 Six-Core Processor",
+    "cores": 6,
+    "threads": 12,
+    "nominal_ram_gib": 32,
+    "gpu": "NVIDIA GeForce RTX 2070",
+    "gpu_vram_gib": 8,
+    "driver": "610.88",
+    "os": "Microsoft Windows 11 Home",
+    "os_version": "10.0.26300"
+  },
+  "corpus_groups": {
+    "personal-it": {
+      "cases": 2,
+      "audio_seconds": 158.741375,
+      "reference_words": 270
+    },
+    "unscored-long": {
+      "cases": 1,
+      "audio_seconds": 615.808,
+      "reference_words": 0
+    },
+    "unscored-short": {
+      "cases": 1,
+      "audio_seconds": 48.1706875,
+      "reference_words": 0
+    },
+    "negative-controls": {
+      "cases": 2,
+      "audio_seconds": 20.0,
+      "reference_words": 0
+    },
+    "fleurs-en": {
+      "cases": 50,
+      "audio_seconds": 486.8400000000001,
+      "reference_words": 1069
+    },
+    "fleurs-it": {
+      "cases": 50,
+      "audio_seconds": 820.8599999999999,
+      "reference_words": 1274
+    },
+    "librispeech-clean": {
+      "cases": 30,
+      "audio_seconds": 145.24993749999996,
+      "reference_words": 384
+    },
+    "librispeech-other": {
+      "cases": 30,
+      "audio_seconds": 199.69,
+      "reference_words": 540
+    },
+    "ami-ihm": {
+      "cases": 30,
+      "audio_seconds": 162.19000000000003,
+      "reference_words": 459
+    },
+    "ami-sdm": {
+      "cases": 30,
+      "audio_seconds": 167.76,
+      "reference_words": 539
+    }
+  },
+  "models": [
+    {
+      "model": "whisper-large-v3",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 28,
+          "reference_characters": 1646,
+          "character_errors": 87,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 14.467758999999205,
+          "wer_percent": 10.37037037037037,
+          "cer_percent": 5.285540704738761,
+          "real_time_factor": 0.0911404414885483
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 66.7436587000011,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.1083838772799332
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 4.830720600002678,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.10028340575381404
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 4,
+          "reference_characters": 0,
+          "character_errors": 18,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.8895400000001246,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.04447700000000623
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 60,
+          "reference_characters": 6336,
+          "character_errors": 149,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 49.83017849999669,
+          "wer_percent": 5.612722170252573,
+          "cer_percent": 2.351641414141414,
+          "real_time_factor": 0.10235432277544303
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 21,
+          "reference_characters": 7924,
+          "character_errors": 80,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 74.76356480000686,
+          "wer_percent": 1.6483516483516483,
+          "cer_percent": 1.0095911155981827,
+          "real_time_factor": 0.0910795565626378
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 13,
+          "reference_characters": 1976,
+          "character_errors": 29,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 22.165119299988874,
+          "wer_percent": 3.3854166666666665,
+          "cer_percent": 1.4676113360323886,
+          "real_time_factor": 0.15259985430278675
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 30,
+          "reference_characters": 2943,
+          "character_errors": 77,
+          "audio_seconds": 199.69,
+          "inference_seconds": 26.600176900003135,
+          "wer_percent": 5.555555555555555,
+          "cer_percent": 2.6163778457356437,
+          "real_time_factor": 0.13320735590166324
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 62,
+          "reference_characters": 2330,
+          "character_errors": 204,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 23.54785090002042,
+          "wer_percent": 13.507625272331154,
+          "cer_percent": 8.755364806866952,
+          "real_time_factor": 0.14518682347876205
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 135,
+          "reference_characters": 2606,
+          "character_errors": 430,
+          "audio_seconds": 167.76,
+          "inference_seconds": 24.298859399998037,
+          "wer_percent": 25.04638218923933,
+          "cer_percent": 16.500383729854182,
+          "real_time_factor": 0.14484298640914425
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 103,
+        "reference_characters": 11255,
+        "character_errors": 255,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 98.5954746999887,
+        "wer_percent": 5.168088309081786,
+        "cer_percent": 2.265659706796979,
+        "real_time_factor": 0.1185355287557519
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 197,
+        "reference_characters": 4936,
+        "character_errors": 634,
+        "audio_seconds": 329.95,
+        "inference_seconds": 47.84671030001846,
+        "wer_percent": 19.739478957915832,
+        "cer_percent": 12.844408427876823,
+        "real_time_factor": 0.14501200272774195
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 58,
+          "reference_words": 1069,
+          "wer_percent": 5.425631431244153
+        },
+        "librispeech-clean": {
+          "errors": 13,
+          "reference_words": 384,
+          "wer_percent": 3.3854166666666665
+        },
+        "librispeech-other": {
+          "errors": 29,
+          "reference_words": 540,
+          "wer_percent": 5.37037037037037
+        },
+        "ami-ihm": {
+          "errors": 62,
+          "reference_words": 459,
+          "wer_percent": 13.507625272331154
+        },
+        "ami-sdm": {
+          "errors": 134,
+          "reference_words": 539,
+          "wer_percent": 24.860853432282003
+        },
+        "reading": {
+          "errors": 100,
+          "reference_words": 1993,
+          "wer_percent": 5.017561465127947
+        },
+        "meetings": {
+          "errors": 196,
+          "reference_words": 998,
+          "wer_percent": 19.639278557114228
+        },
+        "all": {
+          "errors": 296,
+          "reference_words": 2991,
+          "wer_percent": 9.89635573386827
+        }
+      },
+      "load_seconds": 9.19752630000221,
+      "long_audio_inference_seconds": 66.7436587000011,
+      "peak_resident_bytes": 3296698368,
+      "gpu_peak_increment_bytes": 4398440448,
+      "gpu_peak_total_bytes": 5391642624,
+      "model_weight_bytes": 3087284237,
+      "scored_clip_rtf_p50": 0.12448189194952401,
+      "first_case_seconds_including_load": 14.995977300000959,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.2085505282682083,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 2
+      },
+      "device": "cuda",
+      "label": "Whisper large-v3 FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "whisper-large-v3-int8",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 28,
+          "reference_characters": 1646,
+          "character_errors": 88,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 16.97843969999667,
+          "wer_percent": 10.37037037037037,
+          "cer_percent": 5.34629404617254,
+          "real_time_factor": 0.10695661228836319
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 77.35496240000066,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.12561539051132928
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 7.886086200000136,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.163711306798354
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 4,
+          "reference_characters": 0,
+          "character_errors": 18,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.9423424000015075,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.047117120000075376
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 58,
+          "reference_characters": 6336,
+          "character_errors": 148,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 58.8091253999919,
+          "wer_percent": 5.425631431244153,
+          "cer_percent": 2.335858585858586,
+          "real_time_factor": 0.12079764481142036
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 22,
+          "reference_characters": 7924,
+          "character_errors": 82,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 92.50295279997954,
+          "wer_percent": 1.7268445839874411,
+          "cer_percent": 1.0348308934881374,
+          "real_time_factor": 0.11269029164532265
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 28,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 27.554702599991288,
+          "wer_percent": 3.125,
+          "cer_percent": 1.417004048582996,
+          "real_time_factor": 0.1897054351571841
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 35,
+          "reference_characters": 2943,
+          "character_errors": 92,
+          "audio_seconds": 199.69,
+          "inference_seconds": 33.24397119999048,
+          "wer_percent": 6.481481481481482,
+          "cer_percent": 3.126061841658172,
+          "real_time_factor": 0.16647789673989927
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 64,
+          "reference_characters": 2330,
+          "character_errors": 211,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 26.918951200004813,
+          "wer_percent": 13.943355119825709,
+          "cer_percent": 9.055793991416309,
+          "real_time_factor": 0.16597170725695054
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 138,
+          "reference_characters": 2606,
+          "character_errors": 456,
+          "audio_seconds": 167.76,
+          "inference_seconds": 28.82396790000348,
+          "wer_percent": 25.602968460111317,
+          "cer_percent": 17.498081350729088,
+          "real_time_factor": 0.17181668991418386
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 105,
+        "reference_characters": 11255,
+        "character_errors": 268,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 119.60779919997367,
+        "wer_percent": 5.268439538384345,
+        "cer_percent": 2.3811639271434917,
+        "real_time_factor": 0.14379740819364709
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 202,
+        "reference_characters": 4936,
+        "character_errors": 667,
+        "audio_seconds": 329.95,
+        "inference_seconds": 55.742919100008294,
+        "wer_percent": 20.240480961923847,
+        "cer_percent": 13.512965964343598,
+        "real_time_factor": 0.16894353417186936
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 56,
+          "reference_words": 1069,
+          "wer_percent": 5.238540692235734
+        },
+        "librispeech-clean": {
+          "errors": 12,
+          "reference_words": 384,
+          "wer_percent": 3.125
+        },
+        "librispeech-other": {
+          "errors": 34,
+          "reference_words": 540,
+          "wer_percent": 6.296296296296297
+        },
+        "ami-ihm": {
+          "errors": 63,
+          "reference_words": 459,
+          "wer_percent": 13.72549019607843
+        },
+        "ami-sdm": {
+          "errors": 137,
+          "reference_words": 539,
+          "wer_percent": 25.41743970315399
+        },
+        "reading": {
+          "errors": 102,
+          "reference_words": 1993,
+          "wer_percent": 5.1179126944305064
+        },
+        "meetings": {
+          "errors": 200,
+          "reference_words": 998,
+          "wer_percent": 20.04008016032064
+        },
+        "all": {
+          "errors": 302,
+          "reference_words": 2991,
+          "wer_percent": 10.09695753928452
+        }
+      },
+      "load_seconds": 8.775543700001435,
+      "long_audio_inference_seconds": 77.35496240000066,
+      "peak_resident_bytes": 3565088768,
+      "gpu_peak_increment_bytes": 2485837824,
+      "gpu_peak_total_bytes": 3479040000,
+      "model_weight_bytes": 3087284237,
+      "scored_clip_rtf_p50": 0.14919364406946112,
+      "first_case_seconds_including_load": 15.141963699999906,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.24656026882422188,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 2
+      },
+      "device": "cuda",
+      "label": "Whisper large-v3 INT8-FP16 CUDA",
+      "secondary_full_corpus_verification": true
+    },
+    {
+      "model": "whisper-turbo",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 31,
+          "reference_characters": 1646,
+          "character_errors": 100,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 4.644199500002287,
+          "wer_percent": 11.481481481481481,
+          "cer_percent": 6.075334143377885,
+          "real_time_factor": 0.029256389520389923
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 19.571113800000603,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03178119446321029
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 1.0096069000028365,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.020958947285168734
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 2,
+          "reference_characters": 0,
+          "character_errors": 9,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.5511212999990676,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.02755606499995338
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 67,
+          "reference_characters": 6336,
+          "character_errors": 170,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 20.317421099989588,
+          "wer_percent": 6.267539756782039,
+          "cer_percent": 2.683080808080808,
+          "real_time_factor": 0.04173326164651545
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 29,
+          "reference_characters": 7924,
+          "character_errors": 92,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 25.844298200001504,
+          "wer_percent": 2.2762951334379906,
+          "cer_percent": 1.1610297829379101,
+          "real_time_factor": 0.03148441658748326
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 10,
+          "reference_characters": 1976,
+          "character_errors": 17,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 10.15038599998661,
+          "wer_percent": 2.6041666666666665,
+          "cer_percent": 0.8603238866396761,
+          "real_time_factor": 0.0698822056290841
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 25,
+          "reference_characters": 2943,
+          "character_errors": 61,
+          "audio_seconds": 199.69,
+          "inference_seconds": 10.88272959999449,
+          "wer_percent": 4.62962962962963,
+          "cer_percent": 2.072714916751614,
+          "real_time_factor": 0.05449812008610592
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 75,
+          "reference_characters": 2330,
+          "character_errors": 269,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 10.872057300010056,
+          "wer_percent": 16.33986928104575,
+          "cer_percent": 11.545064377682403,
+          "real_time_factor": 0.0670328460448243
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 152,
+          "reference_characters": 2606,
+          "character_errors": 496,
+          "audio_seconds": 167.76,
+          "inference_seconds": 10.74442279998766,
+          "wer_percent": 28.200371057513916,
+          "cer_percent": 19.033000767459708,
+          "real_time_factor": 0.06404639246535325
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 102,
+        "reference_characters": 11255,
+        "character_errors": 248,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 41.35053669997069,
+        "wer_percent": 5.1179126944305064,
+        "cer_percent": 2.2034651266103955,
+        "real_time_factor": 0.04971331338461228
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 227,
+        "reference_characters": 4936,
+        "character_errors": 765,
+        "audio_seconds": 329.95,
+        "inference_seconds": 21.616480099997716,
+        "wer_percent": 22.74549098196393,
+        "cer_percent": 15.498379254457051,
+        "real_time_factor": 0.06551441157750483
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 65,
+          "reference_words": 1069,
+          "wer_percent": 6.080449017773621
+        },
+        "librispeech-clean": {
+          "errors": 10,
+          "reference_words": 384,
+          "wer_percent": 2.6041666666666665
+        },
+        "librispeech-other": {
+          "errors": 25,
+          "reference_words": 540,
+          "wer_percent": 4.62962962962963
+        },
+        "ami-ihm": {
+          "errors": 75,
+          "reference_words": 459,
+          "wer_percent": 16.33986928104575
+        },
+        "ami-sdm": {
+          "errors": 151,
+          "reference_words": 539,
+          "wer_percent": 28.014842300556587
+        },
+        "reading": {
+          "errors": 100,
+          "reference_words": 1993,
+          "wer_percent": 5.017561465127947
+        },
+        "meetings": {
+          "errors": 226,
+          "reference_words": 998,
+          "wer_percent": 22.645290581162325
+        },
+        "all": {
+          "errors": 326,
+          "reference_words": 2991,
+          "wer_percent": 10.899364760949515
+        }
+      },
+      "load_seconds": 3.2491282999981195,
+      "long_audio_inference_seconds": 19.571113800000603,
+      "peak_resident_bytes": 1825406976,
+      "gpu_peak_increment_bytes": 2452283392,
+      "gpu_peak_total_bytes": 3445485568,
+      "model_weight_bytes": 1617884929,
+      "scored_clip_rtf_p50": 0.053185507826114205,
+      "first_case_seconds_including_load": 5.215812499998719,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.10072856270772289,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 0
+      },
+      "device": "cuda",
+      "label": "Whisper large-v3-turbo FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "whisper-turbo-int8",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 31,
+          "reference_characters": 1646,
+          "character_errors": 100,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 5.021468100003403,
+          "wer_percent": 11.481481481481481,
+          "cer_percent": 6.075334143377885,
+          "real_time_factor": 0.03163301376218647
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 21.1906745999986,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03441117133911641
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 1.0869549999988521,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.022564656151084665
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 3,
+          "reference_characters": 0,
+          "character_errors": 12,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.5770254999988538,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.028851274999942687
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 72,
+          "reference_characters": 6336,
+          "character_errors": 169,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 20.77737710000656,
+          "wer_percent": 6.735266604303087,
+          "cer_percent": 2.6672979797979797,
+          "real_time_factor": 0.04267804021856576
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 29,
+          "reference_characters": 7924,
+          "character_errors": 91,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 27.135587000011583,
+          "wer_percent": 2.2762951334379906,
+          "cer_percent": 1.1484098939929328,
+          "real_time_factor": 0.03305750919768485
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 10,
+          "reference_characters": 1976,
+          "character_errors": 17,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 10.167242799987434,
+          "wer_percent": 2.6041666666666665,
+          "cer_percent": 0.8603238866396761,
+          "real_time_factor": 0.0699982593795432
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 24,
+          "reference_characters": 2943,
+          "character_errors": 64,
+          "audio_seconds": 199.69,
+          "inference_seconds": 11.42019949999667,
+          "wer_percent": 4.444444444444445,
+          "cer_percent": 2.1746517159361196,
+          "real_time_factor": 0.057189641444221895
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 85,
+          "reference_characters": 2330,
+          "character_errors": 298,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 10.952338200018858,
+          "wer_percent": 18.51851851851852,
+          "cer_percent": 12.78969957081545,
+          "real_time_factor": 0.06752782662321262
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 155,
+          "reference_characters": 2606,
+          "character_errors": 501,
+          "audio_seconds": 167.76,
+          "inference_seconds": 10.842480300001625,
+          "wer_percent": 28.7569573283859,
+          "cer_percent": 19.224865694551035,
+          "real_time_factor": 0.0646309030758323
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 106,
+        "reference_characters": 11255,
+        "character_errors": 250,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 42.364819399990665,
+        "wer_percent": 5.3186151530356245,
+        "cer_percent": 2.221235006663705,
+        "real_time_factor": 0.05093272570064927
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 240,
+        "reference_characters": 4936,
+        "character_errors": 799,
+        "audio_seconds": 329.95,
+        "inference_seconds": 21.794818500020483,
+        "wer_percent": 24.04809619238477,
+        "cer_percent": 16.187196110210696,
+        "real_time_factor": 0.06605491286564778
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 70,
+          "reference_words": 1069,
+          "wer_percent": 6.5481758652946676
+        },
+        "librispeech-clean": {
+          "errors": 10,
+          "reference_words": 384,
+          "wer_percent": 2.6041666666666665
+        },
+        "librispeech-other": {
+          "errors": 24,
+          "reference_words": 540,
+          "wer_percent": 4.444444444444445
+        },
+        "ami-ihm": {
+          "errors": 85,
+          "reference_words": 459,
+          "wer_percent": 18.51851851851852
+        },
+        "ami-sdm": {
+          "errors": 154,
+          "reference_words": 539,
+          "wer_percent": 28.571428571428573
+        },
+        "reading": {
+          "errors": 104,
+          "reference_words": 1993,
+          "wer_percent": 5.2182639237330655
+        },
+        "meetings": {
+          "errors": 239,
+          "reference_words": 998,
+          "wer_percent": 23.947895791583168
+        },
+        "all": {
+          "errors": 343,
+          "reference_words": 2991,
+          "wer_percent": 11.46773654296222
+        }
+      },
+      "load_seconds": 4.608688899999834,
+      "long_audio_inference_seconds": 21.1906745999986,
+      "peak_resident_bytes": 2105479168,
+      "gpu_peak_increment_bytes": 1378541568,
+      "gpu_peak_total_bytes": 2371743744,
+      "model_weight_bytes": 1617884929,
+      "scored_clip_rtf_p50": 0.05313992473729803,
+      "first_case_seconds_including_load": 6.621151900002587,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.10261961478693633,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 1
+      },
+      "device": "cuda",
+      "label": "Whisper large-v3-turbo INT8-FP16 CUDA",
+      "secondary_full_corpus_verification": true
+    },
+    {
+      "model": "whisper-medium",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 31,
+          "reference_characters": 1646,
+          "character_errors": 81,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 11.388684800000192,
+          "wer_percent": 11.481481481481481,
+          "cer_percent": 4.921020656136087,
+          "real_time_factor": 0.0717436446547108
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 47.7208713,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.07749310060928082
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 1.6107771000024513,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.033438947700350996
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 4,
+          "reference_characters": 0,
+          "character_errors": 22,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.7064773999954923,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03532386999977462
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 62,
+          "reference_characters": 6336,
+          "character_errors": 146,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 36.65377229999285,
+          "wer_percent": 5.799812909260992,
+          "cer_percent": 2.3042929292929295,
+          "real_time_factor": 0.07528915516389953
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 48,
+          "reference_characters": 7924,
+          "character_errors": 112,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 57.2109613000066,
+          "wer_percent": 3.767660910518053,
+          "cer_percent": 1.4134275618374559,
+          "real_time_factor": 0.06969636880833104
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 19,
+          "reference_characters": 1976,
+          "character_errors": 68,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 16.294364399996994,
+          "wer_percent": 4.947916666666667,
+          "cer_percent": 3.4412955465587043,
+          "real_time_factor": 0.11218155877001323
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 47,
+          "reference_characters": 2943,
+          "character_errors": 134,
+          "audio_seconds": 199.69,
+          "inference_seconds": 21.437177100011468,
+          "wer_percent": 8.703703703703704,
+          "cer_percent": 4.55317703024125,
+          "real_time_factor": 0.10735228153643882
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 87,
+          "reference_characters": 2330,
+          "character_errors": 317,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 17.36258209999869,
+          "wer_percent": 18.954248366013072,
+          "cer_percent": 13.605150214592275,
+          "real_time_factor": 0.10705087921572654
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 152,
+          "reference_characters": 2606,
+          "character_errors": 525,
+          "audio_seconds": 167.76,
+          "inference_seconds": 17.779366700007813,
+          "wer_percent": 28.200371057513916,
+          "cer_percent": 20.14581734458941,
+          "real_time_factor": 0.10598096506919298
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 128,
+        "reference_characters": 11255,
+        "character_errors": 348,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 74.38531380000131,
+        "wer_percent": 6.422478675363773,
+        "cer_percent": 3.0919591292758772,
+        "real_time_factor": 0.08942907907057011
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 239,
+        "reference_characters": 4936,
+        "character_errors": 842,
+        "audio_seconds": 329.95,
+        "inference_seconds": 35.1419488000065,
+        "wer_percent": 23.947895791583168,
+        "cer_percent": 17.058346839546193,
+        "real_time_factor": 0.10650689134719353
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 60,
+          "reference_words": 1069,
+          "wer_percent": 5.612722170252573
+        },
+        "librispeech-clean": {
+          "errors": 19,
+          "reference_words": 384,
+          "wer_percent": 4.947916666666667
+        },
+        "librispeech-other": {
+          "errors": 47,
+          "reference_words": 540,
+          "wer_percent": 8.703703703703704
+        },
+        "ami-ihm": {
+          "errors": 86,
+          "reference_words": 459,
+          "wer_percent": 18.736383442265794
+        },
+        "ami-sdm": {
+          "errors": 152,
+          "reference_words": 539,
+          "wer_percent": 28.200371057513916
+        },
+        "reading": {
+          "errors": 126,
+          "reference_words": 1993,
+          "wer_percent": 6.322127446061215
+        },
+        "meetings": {
+          "errors": 238,
+          "reference_words": 998,
+          "wer_percent": 23.847695390781563
+        },
+        "all": {
+          "errors": 364,
+          "reference_words": 2991,
+          "wer_percent": 12.16984286191909
+        }
+      },
+      "load_seconds": 3.2853785999977845,
+      "long_audio_inference_seconds": 47.7208713,
+      "peak_resident_bytes": 1735905280,
+      "gpu_peak_increment_bytes": 2318065664,
+      "gpu_peak_total_bytes": 3311267840,
+      "model_weight_bytes": 1527906378,
+      "scored_clip_rtf_p50": 0.0938125594039317,
+      "first_case_seconds_including_load": 7.4410326999968674,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.15503494682683877,
+      "negative_control_inserted_words": {
+        "control-silence": 1,
+        "control-noise": 3
+      },
+      "device": "cuda",
+      "label": "Whisper medium FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "parakeet-q8-cuda",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 37,
+          "reference_characters": 1646,
+          "character_errors": 117,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 1.6321335000029649,
+          "wer_percent": 13.703703703703704,
+          "cer_percent": 7.108140947752126,
+          "real_time_factor": 0.010281714518366524
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 5.535287400001835,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.00898865782841703
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 0.3107044999997015,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.006450074020631354
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.12312450000172248,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.006156225000086124
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 77,
+          "reference_characters": 6336,
+          "character_errors": 172,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 5.3326817999950435,
+          "wer_percent": 7.202993451824135,
+          "cer_percent": 2.7146464646464645,
+          "real_time_factor": 0.010953664037455926
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 27,
+          "reference_characters": 7924,
+          "character_errors": 64,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 6.987840900001174,
+          "wer_percent": 2.119309262166405,
+          "cer_percent": 0.8076728924785462,
+          "real_time_factor": 0.00851282910606093
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 19,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 2.175860700001067,
+          "wer_percent": 3.125,
+          "cer_percent": 0.9615384615384616,
+          "real_time_factor": 0.014980114535340627
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 23,
+          "reference_characters": 2943,
+          "character_errors": 41,
+          "audio_seconds": 199.69,
+          "inference_seconds": 2.710826700000325,
+          "wer_percent": 4.2592592592592595,
+          "cer_percent": 1.3931362555215767,
+          "real_time_factor": 0.013575175021284618
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 31,
+          "reference_characters": 2330,
+          "character_errors": 103,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 2.6677177000092342,
+          "wer_percent": 6.753812636165577,
+          "cer_percent": 4.420600858369099,
+          "real_time_factor": 0.016448102225841504
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 106,
+          "reference_characters": 2606,
+          "character_errors": 372,
+          "audio_seconds": 167.76,
+          "inference_seconds": 2.5107319000053394,
+          "wer_percent": 19.666048237476808,
+          "cer_percent": 14.274750575594782,
+          "real_time_factor": 0.014966213042473411
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 112,
+        "reference_characters": 11255,
+        "character_errors": 232,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 10.219369199996436,
+        "wer_percent": 5.6196688409433015,
+        "cer_percent": 2.0613060861839183,
+        "real_time_factor": 0.012286145336363614
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 137,
+        "reference_characters": 4936,
+        "character_errors": 475,
+        "audio_seconds": 329.95,
+        "inference_seconds": 5.178449600014574,
+        "wer_percent": 13.72745490981964,
+        "cer_percent": 9.623176661264182,
+        "real_time_factor": 0.015694649492391494
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 75,
+          "reference_words": 1069,
+          "wer_percent": 7.015902712815715
+        },
+        "librispeech-clean": {
+          "errors": 11,
+          "reference_words": 384,
+          "wer_percent": 2.8645833333333335
+        },
+        "librispeech-other": {
+          "errors": 22,
+          "reference_words": 540,
+          "wer_percent": 4.074074074074074
+        },
+        "ami-ihm": {
+          "errors": 31,
+          "reference_words": 459,
+          "wer_percent": 6.753812636165577
+        },
+        "ami-sdm": {
+          "errors": 105,
+          "reference_words": 539,
+          "wer_percent": 19.48051948051948
+        },
+        "reading": {
+          "errors": 108,
+          "reference_words": 1993,
+          "wer_percent": 5.4189663823381835
+        },
+        "meetings": {
+          "errors": 136,
+          "reference_words": 998,
+          "wer_percent": 13.627254509018035
+        },
+        "all": {
+          "errors": 244,
+          "reference_words": 2991,
+          "wer_percent": 8.157806753594116
+        }
+      },
+      "load_seconds": 0.7634170000019367,
+      "long_audio_inference_seconds": 5.535287400001835,
+      "peak_resident_bytes": 1255727104,
+      "gpu_peak_increment_bytes": 1277878272,
+      "gpu_peak_total_bytes": 2271080448,
+      "model_weight_bytes": 940663680,
+      "scored_clip_rtf_p50": 0.012540621026091377,
+      "first_case_seconds_including_load": 1.4950632000036421,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.022063900884030457,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cuda",
+      "label": "Parakeet TDT v3 Q8 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "parakeet-q4",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 37,
+          "reference_characters": 1646,
+          "character_errors": 113,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 26.037406200000987,
+          "wer_percent": 13.703703703703704,
+          "cer_percent": 6.865127582017011,
+          "real_time_factor": 0.16402406870925104
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 101.69244439999966,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.16513660816358292
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 7.769449600000371,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.16128998781676868
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 3.101390399999218,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.1550695199999609
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 81,
+          "reference_characters": 6336,
+          "character_errors": 193,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 76.82711160000326,
+          "wer_percent": 7.5771749298409725,
+          "cer_percent": 3.0460858585858586,
+          "real_time_factor": 0.1578077224550227
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 30,
+          "reference_characters": 7924,
+          "character_errors": 71,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 129.92538879999483,
+          "wer_percent": 2.3547880690737832,
+          "cer_percent": 0.8960121150933872,
+          "real_time_factor": 0.15827959554612828
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 20,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 23.53386160000082,
+          "wer_percent": 3.125,
+          "cer_percent": 1.0121457489878543,
+          "real_time_factor": 0.16202321326300623
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 22,
+          "reference_characters": 2943,
+          "character_errors": 40,
+          "audio_seconds": 199.69,
+          "inference_seconds": 32.36956100000316,
+          "wer_percent": 4.074074074074074,
+          "cer_percent": 1.3591573224600748,
+          "real_time_factor": 0.16209905854075396
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 35,
+          "reference_characters": 2330,
+          "character_errors": 117,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 25.003391999995074,
+          "wer_percent": 7.625272331154684,
+          "cer_percent": 5.021459227467811,
+          "real_time_factor": 0.1541611196744255
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 92,
+          "reference_characters": 2606,
+          "character_errors": 302,
+          "audio_seconds": 167.76,
+          "inference_seconds": 25.929688200012606,
+          "wer_percent": 17.068645640074212,
+          "cer_percent": 11.588641596316194,
+          "real_time_factor": 0.15456418812596928
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 115,
+        "reference_characters": 11255,
+        "character_errors": 253,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 132.73053420000724,
+        "wer_percent": 5.77019568489714,
+        "cer_percent": 2.2478898267436693,
+        "real_time_factor": 0.1595740991288424
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 127,
+        "reference_characters": 4936,
+        "character_errors": 419,
+        "audio_seconds": 329.95,
+        "inference_seconds": 50.93308020000768,
+        "wer_percent": 12.725450901803606,
+        "cer_percent": 8.488654781199351,
+        "real_time_factor": 0.15436605606912465
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 78,
+          "reference_words": 1069,
+          "wer_percent": 7.296538821328344
+        },
+        "librispeech-clean": {
+          "errors": 11,
+          "reference_words": 384,
+          "wer_percent": 2.8645833333333335
+        },
+        "librispeech-other": {
+          "errors": 21,
+          "reference_words": 540,
+          "wer_percent": 3.888888888888889
+        },
+        "ami-ihm": {
+          "errors": 35,
+          "reference_words": 459,
+          "wer_percent": 7.625272331154684
+        },
+        "ami-sdm": {
+          "errors": 91,
+          "reference_words": 539,
+          "wer_percent": 16.883116883116884
+        },
+        "reading": {
+          "errors": 110,
+          "reference_words": 1993,
+          "wer_percent": 5.5193176116407425
+        },
+        "meetings": {
+          "errors": 126,
+          "reference_words": 998,
+          "wer_percent": 12.625250501002004
+        },
+        "all": {
+          "errors": 236,
+          "reference_words": 2991,
+          "wer_percent": 7.890337679705784
+        }
+      },
+      "load_seconds": 0.27752440000040224,
+      "long_audio_inference_seconds": 101.69244439999966,
+      "peak_resident_bytes": 1068331008,
+      "gpu_peak_increment_bytes": 0,
+      "gpu_peak_total_bytes": 993202176,
+      "model_weight_bytes": 675200864,
+      "scored_clip_rtf_p50": 0.15813365700430454,
+      "first_case_seconds_including_load": 11.345317600000271,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.16649734405229552,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cpu",
+      "label": "Parakeet TDT v3 Q4_K CPU",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "parakeet-q8",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 39,
+          "reference_characters": 1646,
+          "character_errors": 124,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 30.300820599997678,
+          "wer_percent": 14.444444444444445,
+          "cer_percent": 7.533414337788578,
+          "real_time_factor": 0.19088168160315908
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 118.35348240000167,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.19219218067969507
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 8.931902200001787,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.18542193735561252
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 3.5798744999992778,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.17899372499996388
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 78,
+          "reference_characters": 6336,
+          "character_errors": 169,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 91.43601510000008,
+          "wer_percent": 7.296538821328344,
+          "cer_percent": 2.6672979797979797,
+          "real_time_factor": 0.18781532967710143
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 28,
+          "reference_characters": 7924,
+          "character_errors": 64,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 153.04980049999722,
+          "wer_percent": 2.197802197802198,
+          "cer_percent": 0.8076728924785462,
+          "real_time_factor": 0.18645055246935804
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 19,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 27.54415070000323,
+          "wer_percent": 3.125,
+          "cer_percent": 0.9615384615384616,
+          "real_time_factor": 0.1896327886544064
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 23,
+          "reference_characters": 2943,
+          "character_errors": 41,
+          "audio_seconds": 199.69,
+          "inference_seconds": 38.065916499988816,
+          "wer_percent": 4.2592592592592595,
+          "cer_percent": 1.3931362555215767,
+          "real_time_factor": 0.1906250513295048
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 31,
+          "reference_characters": 2330,
+          "character_errors": 103,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 30.73276789999727,
+          "wer_percent": 6.753812636165577,
+          "cer_percent": 4.420600858369099,
+          "real_time_factor": 0.18948620691779558
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 106,
+          "reference_characters": 2606,
+          "character_errors": 372,
+          "audio_seconds": 167.76,
+          "inference_seconds": 31.964471199997206,
+          "wer_percent": 19.666048237476808,
+          "cer_percent": 14.274750575594782,
+          "real_time_factor": 0.19053690510251078
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 113,
+        "reference_characters": 11255,
+        "character_errors": 229,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 157.04608229999212,
+        "wer_percent": 5.669844455594581,
+        "cer_percent": 2.0346512661039537,
+        "real_time_factor": 0.1888072496338519
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 137,
+        "reference_characters": 4936,
+        "character_errors": 475,
+        "audio_seconds": 329.95,
+        "inference_seconds": 62.697239099994476,
+        "wer_percent": 13.72745490981964,
+        "cer_percent": 9.623176661264182,
+        "real_time_factor": 0.19002042460977261
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 76,
+          "reference_words": 1069,
+          "wer_percent": 7.1094480823199255
+        },
+        "librispeech-clean": {
+          "errors": 11,
+          "reference_words": 384,
+          "wer_percent": 2.8645833333333335
+        },
+        "librispeech-other": {
+          "errors": 22,
+          "reference_words": 540,
+          "wer_percent": 4.074074074074074
+        },
+        "ami-ihm": {
+          "errors": 31,
+          "reference_words": 459,
+          "wer_percent": 6.753812636165577
+        },
+        "ami-sdm": {
+          "errors": 105,
+          "reference_words": 539,
+          "wer_percent": 19.48051948051948
+        },
+        "reading": {
+          "errors": 109,
+          "reference_words": 1993,
+          "wer_percent": 5.469141996989463
+        },
+        "meetings": {
+          "errors": 136,
+          "reference_words": 998,
+          "wer_percent": 13.627254509018035
+        },
+        "all": {
+          "errors": 245,
+          "reference_words": 2991,
+          "wer_percent": 8.191240387830158
+        }
+      },
+      "load_seconds": 0.37928420000025653,
+      "long_audio_inference_seconds": 118.35348240000167,
+      "peak_resident_bytes": 1333796864,
+      "gpu_peak_increment_bytes": 0,
+      "gpu_peak_total_bytes": 993202176,
+      "model_weight_bytes": 940663680,
+      "scored_clip_rtf_p50": 0.18874350865215478,
+      "first_case_seconds_including_load": 13.199262400001317,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.19592544861248606,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cpu",
+      "label": "Parakeet TDT v3 Q8 CPU",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "parakeet-f16",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 39,
+          "reference_characters": 1646,
+          "character_errors": 124,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 36.10756019999826,
+          "wer_percent": 14.444444444444445,
+          "cer_percent": 7.533414337788578,
+          "real_time_factor": 0.22746155625776998
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 141.2645788000009,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.2293971153346512
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 10.70698479999919,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.22227178717345877
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 4.340628099998867,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.21703140499994333
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 79,
+          "reference_characters": 6336,
+          "character_errors": 171,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 109.92128139998749,
+          "wer_percent": 7.390084190832554,
+          "cer_percent": 2.6988636363636362,
+          "real_time_factor": 0.22578523005502316
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 27,
+          "reference_characters": 7924,
+          "character_errors": 68,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 184.068269899999,
+          "wer_percent": 2.119309262166405,
+          "cer_percent": 0.8581524482584554,
+          "real_time_factor": 0.22423832310016203
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 19,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 33.84210329999769,
+          "wer_percent": 3.125,
+          "cer_percent": 0.9615384615384616,
+          "real_time_factor": 0.23299220559043407
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 23,
+          "reference_characters": 2943,
+          "character_errors": 41,
+          "audio_seconds": 199.69,
+          "inference_seconds": 46.02091210000435,
+          "wer_percent": 4.2592592592592595,
+          "cer_percent": 1.3931362555215767,
+          "real_time_factor": 0.23046177625321423
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 31,
+          "reference_characters": 2330,
+          "character_errors": 103,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 37.09637710000243,
+          "wer_percent": 6.753812636165577,
+          "cer_percent": 4.420600858369099,
+          "real_time_factor": 0.22872172822000383
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 96,
+          "reference_characters": 2606,
+          "character_errors": 323,
+          "audio_seconds": 167.76,
+          "inference_seconds": 38.69474900000205,
+          "wer_percent": 17.810760667903526,
+          "cer_percent": 12.39447429009977,
+          "real_time_factor": 0.23065539461136178
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 114,
+        "reference_characters": 11255,
+        "character_errors": 231,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 189.78429679998953,
+        "wer_percent": 5.720020070245861,
+        "cer_percent": 2.0524211461572635,
+        "real_time_factor": 0.2281664755829599
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 127,
+        "reference_characters": 4936,
+        "character_errors": 426,
+        "audio_seconds": 329.95,
+        "inference_seconds": 75.79112610000448,
+        "wer_percent": 12.725450901803606,
+        "cer_percent": 8.630470016207456,
+        "real_time_factor": 0.22970488286105312
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 77,
+          "reference_words": 1069,
+          "wer_percent": 7.202993451824135
+        },
+        "librispeech-clean": {
+          "errors": 11,
+          "reference_words": 384,
+          "wer_percent": 2.8645833333333335
+        },
+        "librispeech-other": {
+          "errors": 22,
+          "reference_words": 540,
+          "wer_percent": 4.074074074074074
+        },
+        "ami-ihm": {
+          "errors": 31,
+          "reference_words": 459,
+          "wer_percent": 6.753812636165577
+        },
+        "ami-sdm": {
+          "errors": 95,
+          "reference_words": 539,
+          "wer_percent": 17.625231910946198
+        },
+        "reading": {
+          "errors": 110,
+          "reference_words": 1993,
+          "wer_percent": 5.5193176116407425
+        },
+        "meetings": {
+          "errors": 126,
+          "reference_words": 998,
+          "wer_percent": 12.625250501002004
+        },
+        "all": {
+          "errors": 236,
+          "reference_words": 2991,
+          "wer_percent": 7.890337679705784
+        }
+      },
+      "load_seconds": 0.7585261000022001,
+      "long_audio_inference_seconds": 141.2645788000009,
+      "peak_resident_bytes": 1836019712,
+      "gpu_peak_increment_bytes": 0,
+      "gpu_peak_total_bytes": 993202176,
+      "model_weight_bytes": 1441046400,
+      "scored_clip_rtf_p50": 0.22776486565569326,
+      "first_case_seconds_including_load": 16.073319200000697,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.2391543428139449,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cpu",
+      "label": "Parakeet TDT v3 F16 CPU",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "whisper-small",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 44,
+          "reference_characters": 1646,
+          "character_errors": 117,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 7.636424999996962,
+          "wer_percent": 16.296296296296298,
+          "cer_percent": 7.108140947752126,
+          "real_time_factor": 0.04810607820422975
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 29.6672959000025,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.04817621060460809
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 0.7497256999995443,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.015563940207404021
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 1,
+          "reference_characters": 0,
+          "character_errors": 3,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.3948555999995733,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.019742779999978664
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 86,
+          "reference_characters": 6336,
+          "character_errors": 181,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 21.093681499987724,
+          "wer_percent": 8.044901777362021,
+          "cer_percent": 2.856691919191919,
+          "real_time_factor": 0.04332774936321527
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 119,
+          "reference_characters": 7924,
+          "character_errors": 300,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 33.8630741999732,
+          "wer_percent": 9.340659340659341,
+          "cer_percent": 3.7859666834931853,
+          "real_time_factor": 0.04125316643516946
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 23,
+          "reference_characters": 1976,
+          "character_errors": 61,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 9.120782899994083,
+          "wer_percent": 5.989583333333333,
+          "cer_percent": 3.0870445344129553,
+          "real_time_factor": 0.06279371307814907
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 54,
+          "reference_characters": 2943,
+          "character_errors": 137,
+          "audio_seconds": 199.69,
+          "inference_seconds": 11.83533010001338,
+          "wer_percent": 10.0,
+          "cer_percent": 4.655113829425756,
+          "real_time_factor": 0.05926851670095338
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 81,
+          "reference_characters": 2330,
+          "character_errors": 286,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 11.21047199998793,
+          "wer_percent": 17.647058823529413,
+          "cer_percent": 12.274678111587983,
+          "real_time_factor": 0.06911937850661526
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 153,
+          "reference_characters": 2606,
+          "character_errors": 477,
+          "audio_seconds": 167.76,
+          "inference_seconds": 9.790164800000639,
+          "wer_percent": 28.385899814471244,
+          "cer_percent": 18.303914044512663,
+          "real_time_factor": 0.0583581592751588
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 163,
+        "reference_characters": 11255,
+        "character_errors": 379,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 42.04979449999519,
+        "wer_percent": 8.178625188158556,
+        "cer_percent": 3.367392270102177,
+        "real_time_factor": 0.05055398982858398
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 234,
+        "reference_characters": 4936,
+        "character_errors": 763,
+        "audio_seconds": 329.95,
+        "inference_seconds": 21.00063679998857,
+        "wer_percent": 23.44689378757515,
+        "cer_percent": 15.457860615883307,
+        "real_time_factor": 0.06364793696011084
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 84,
+          "reference_words": 1069,
+          "wer_percent": 7.857811038353601
+        },
+        "librispeech-clean": {
+          "errors": 23,
+          "reference_words": 384,
+          "wer_percent": 5.989583333333333
+        },
+        "librispeech-other": {
+          "errors": 54,
+          "reference_words": 540,
+          "wer_percent": 10.0
+        },
+        "ami-ihm": {
+          "errors": 81,
+          "reference_words": 459,
+          "wer_percent": 17.647058823529413
+        },
+        "ami-sdm": {
+          "errors": 152,
+          "reference_words": 539,
+          "wer_percent": 28.200371057513916
+        },
+        "reading": {
+          "errors": 161,
+          "reference_words": 1993,
+          "wer_percent": 8.078273958855997
+        },
+        "meetings": {
+          "errors": 233,
+          "reference_words": 998,
+          "wer_percent": 23.34669338677355
+        },
+        "all": {
+          "errors": 394,
+          "reference_words": 2991,
+          "wer_percent": 13.172851889000334
+        }
+      },
+      "load_seconds": 1.521197599999141,
+      "long_audio_inference_seconds": 29.6672959000025,
+      "peak_resident_bytes": 1213345792,
+      "gpu_peak_increment_bytes": 841670656,
+      "gpu_peak_total_bytes": 1834872832,
+      "model_weight_bytes": 483546902,
+      "scored_clip_rtf_p50": 0.052747324444835625,
+      "first_case_seconds_including_load": 4.9558689999976195,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.09622410957097524,
+      "negative_control_inserted_words": {
+        "control-silence": 1,
+        "control-noise": 0
+      },
+      "device": "cuda",
+      "label": "Whisper small FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "canary-1b-v2",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 47,
+          "reference_characters": 1646,
+          "character_errors": 145,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 11.092512199997145,
+          "wer_percent": 17.40740740740741,
+          "cer_percent": 8.809234507897935,
+          "real_time_factor": 0.06987788911364252
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 31.41074579999986,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.05100736885522737
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 1.9688438000011956,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.04087223791442038
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 1.290350600003876,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.0645175300001938
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 82,
+          "reference_characters": 6336,
+          "character_errors": 201,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 73.11320370000612,
+          "wer_percent": 7.670720299345183,
+          "cer_percent": 3.172348484848485,
+          "real_time_factor": 0.1501791218881072
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 50,
+          "reference_characters": 7924,
+          "character_errors": 197,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 77.17495699999199,
+          "wer_percent": 3.924646781789639,
+          "cer_percent": 2.486118122160525,
+          "real_time_factor": 0.09401719781691396
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 10,
+          "reference_characters": 1976,
+          "character_errors": 22,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 33.65656549999767,
+          "wer_percent": 2.6041666666666665,
+          "cer_percent": 1.1133603238866396,
+          "real_time_factor": 0.2317148363660926
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 23,
+          "reference_characters": 2943,
+          "character_errors": 50,
+          "audio_seconds": 199.69,
+          "inference_seconds": 37.05873330000395,
+          "wer_percent": 4.2592592592592595,
+          "cer_percent": 1.6989466530750934,
+          "real_time_factor": 0.1855813175422102
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 69,
+          "reference_characters": 2330,
+          "character_errors": 232,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 40.08864920000269,
+          "wer_percent": 15.032679738562091,
+          "cer_percent": 9.957081545064378,
+          "real_time_factor": 0.2471709057278666
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 157,
+          "reference_characters": 2606,
+          "character_errors": 535,
+          "audio_seconds": 167.76,
+          "inference_seconds": 33.875673400008964,
+          "wer_percent": 29.128014842300555,
+          "cer_percent": 20.529547198772065,
+          "real_time_factor": 0.2019293836433534
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 115,
+        "reference_characters": 11255,
+        "character_errors": 273,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 143.82850250000774,
+        "wer_percent": 5.77019568489714,
+        "cer_percent": 2.425588627276766,
+        "real_time_factor": 0.1729165323851152
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 226,
+        "reference_characters": 4936,
+        "character_errors": 767,
+        "audio_seconds": 329.95,
+        "inference_seconds": 73.96432260001166,
+        "wer_percent": 22.645290581162325,
+        "cer_percent": 15.538897893030795,
+        "real_time_factor": 0.22416827579939888
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 81,
+          "reference_words": 1069,
+          "wer_percent": 7.5771749298409725
+        },
+        "librispeech-clean": {
+          "errors": 9,
+          "reference_words": 384,
+          "wer_percent": 2.34375
+        },
+        "librispeech-other": {
+          "errors": 22,
+          "reference_words": 540,
+          "wer_percent": 4.074074074074074
+        },
+        "ami-ihm": {
+          "errors": 69,
+          "reference_words": 459,
+          "wer_percent": 15.032679738562091
+        },
+        "ami-sdm": {
+          "errors": 155,
+          "reference_words": 539,
+          "wer_percent": 28.7569573283859
+        },
+        "reading": {
+          "errors": 112,
+          "reference_words": 1993,
+          "wer_percent": 5.6196688409433015
+        },
+        "meetings": {
+          "errors": 224,
+          "reference_words": 998,
+          "wer_percent": 22.44488977955912
+        },
+        "all": {
+          "errors": 336,
+          "reference_words": 2991,
+          "wer_percent": 11.23370110330993
+        }
+      },
+      "load_seconds": 35.713447000001906,
+      "long_audio_inference_seconds": 31.41074579999986,
+      "peak_resident_bytes": 2803871744,
+      "gpu_peak_increment_bytes": 2234179584,
+      "gpu_peak_total_bytes": 3227381760,
+      "model_weight_bytes": 3916173816,
+      "scored_clip_rtf_p50": 0.1725171769776105,
+      "first_case_seconds_including_load": 41.44228370000201,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.4116848678654363,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cuda",
+      "label": "Canary 1B v2 FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "qwen-1.7b",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 47,
+          "reference_characters": 1646,
+          "character_errors": 169,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 44.63008070000433,
+          "wer_percent": 17.40740740740741,
+          "cer_percent": 10.267314702308626,
+          "real_time_factor": 0.2811496416734725
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 196.76254060000065,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.31951929919715344
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 5.458884799998486,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.11332378845534406
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 6,
+          "reference_characters": 0,
+          "character_errors": 24,
+          "audio_seconds": 20.0,
+          "inference_seconds": 1.25156490000154,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.062578245000077
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 54,
+          "reference_characters": 6336,
+          "character_errors": 125,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 131.60203070002171,
+          "wer_percent": 5.051449953227316,
+          "cer_percent": 1.9728535353535352,
+          "real_time_factor": 0.2703188536275197
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 33,
+          "reference_characters": 7924,
+          "character_errors": 102,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 222.20081700000446,
+          "wer_percent": 2.5902668759811616,
+          "cer_percent": 1.287228672387683,
+          "real_time_factor": 0.2706927088663164
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 9,
+          "reference_characters": 1976,
+          "character_errors": 13,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 50.734111399982794,
+          "wer_percent": 2.34375,
+          "cer_percent": 0.6578947368421053,
+          "real_time_factor": 0.3492883527057133
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 19,
+          "reference_characters": 2943,
+          "character_errors": 44,
+          "audio_seconds": 199.69,
+          "inference_seconds": 70.67263379999349,
+          "wer_percent": 3.5185185185185186,
+          "cer_percent": 1.4950730547060822,
+          "real_time_factor": 0.353911732184854
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 43,
+          "reference_characters": 2330,
+          "character_errors": 123,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 53.36368220000804,
+          "wer_percent": 9.368191721132897,
+          "cer_percent": 5.278969957081545,
+          "real_time_factor": 0.32901955854249976
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 116,
+          "reference_characters": 2606,
+          "character_errors": 365,
+          "audio_seconds": 167.76,
+          "inference_seconds": 57.61206279999533,
+          "wer_percent": 21.521335807050093,
+          "cer_percent": 14.006139677666923,
+          "real_time_factor": 0.34341954458747814
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 82,
+        "reference_characters": 11255,
+        "character_errors": 182,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 253.008775899998,
+        "wer_percent": 4.114400401404917,
+        "cer_percent": 1.6170590848511772,
+        "real_time_factor": 0.30417754082941945
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 159,
+        "reference_characters": 4936,
+        "character_errors": 488,
+        "audio_seconds": 329.95,
+        "inference_seconds": 110.97574500000337,
+        "wer_percent": 15.93186372745491,
+        "cer_percent": 9.886547811993516,
+        "real_time_factor": 0.3363410971359399
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 52,
+          "reference_words": 1069,
+          "wer_percent": 4.864359214218896
+        },
+        "librispeech-clean": {
+          "errors": 9,
+          "reference_words": 384,
+          "wer_percent": 2.34375
+        },
+        "librispeech-other": {
+          "errors": 19,
+          "reference_words": 540,
+          "wer_percent": 3.5185185185185186
+        },
+        "ami-ihm": {
+          "errors": 43,
+          "reference_words": 459,
+          "wer_percent": 9.368191721132897
+        },
+        "ami-sdm": {
+          "errors": 114,
+          "reference_words": 539,
+          "wer_percent": 21.150278293135436
+        },
+        "reading": {
+          "errors": 80,
+          "reference_words": 1993,
+          "wer_percent": 4.014049172102358
+        },
+        "meetings": {
+          "errors": 157,
+          "reference_words": 998,
+          "wer_percent": 15.731462925851703
+        },
+        "all": {
+          "errors": 237,
+          "reference_words": 2991,
+          "wer_percent": 7.923771313941826
+        }
+      },
+      "load_seconds": 17.063780399999814,
+      "long_audio_inference_seconds": 196.76254060000065,
+      "peak_resident_bytes": 5265334272,
+      "gpu_peak_increment_bytes": 4924825600,
+      "gpu_peak_total_bytes": 5918027776,
+      "model_weight_bytes": 4698521512,
+      "scored_clip_rtf_p50": 0.3148779622668416,
+      "first_case_seconds_including_load": 33.94290530000217,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.46583120287873275,
+      "negative_control_inserted_words": {
+        "control-silence": 3,
+        "control-noise": 3
+      },
+      "device": "cuda",
+      "label": "Qwen3-ASR 1.7B FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "nemotron-q8",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 52,
+          "reference_characters": 1646,
+          "character_errors": 166,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 35.686526100002084,
+          "wer_percent": 19.25925925925926,
+          "cer_percent": 10.08505467800729,
+          "real_time_factor": 0.22480922884787966
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 138.70242130000042,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.22523647191981985
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 10.130971800001134,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.21031403797176726
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 3.9842012000008253,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.19921006000004127
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 116,
+          "reference_characters": 6336,
+          "character_errors": 340,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 108.02602180000031,
+          "wer_percent": 10.851262862488307,
+          "cer_percent": 5.366161616161616,
+          "real_time_factor": 0.2218922475556657
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 74,
+          "reference_characters": 7924,
+          "character_errors": 317,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 180.743132399999,
+          "wer_percent": 5.808477237048666,
+          "cer_percent": 4.0005047955577995,
+          "real_time_factor": 0.22018752576565923
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 16,
+          "reference_characters": 1976,
+          "character_errors": 28,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 32.84723290000693,
+          "wer_percent": 4.166666666666667,
+          "cer_percent": 1.417004048582996,
+          "real_time_factor": 0.2261428367224388
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 33,
+          "reference_characters": 2943,
+          "character_errors": 84,
+          "audio_seconds": 199.69,
+          "inference_seconds": 45.3302276000104,
+          "wer_percent": 6.111111111111111,
+          "cer_percent": 2.854230377166157,
+          "real_time_factor": 0.2270029926386419
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 56,
+          "reference_characters": 2330,
+          "character_errors": 155,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 35.30304359999354,
+          "wer_percent": 12.200435729847495,
+          "cer_percent": 6.652360515021459,
+          "real_time_factor": 0.217664736420208
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 178,
+          "reference_characters": 2606,
+          "character_errors": 627,
+          "audio_seconds": 167.76,
+          "inference_seconds": 36.33666079999966,
+          "wer_percent": 33.024118738404454,
+          "cer_percent": 24.059861857252493,
+          "real_time_factor": 0.2165990748688583
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 165,
+        "reference_characters": 11255,
+        "character_errors": 452,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 186.20348230001764,
+        "wer_percent": 8.278976417461115,
+        "cer_percent": 4.015992892047978,
+        "real_time_factor": 0.22386147333593
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 234,
+        "reference_characters": 4936,
+        "character_errors": 782,
+        "audio_seconds": 329.95,
+        "inference_seconds": 71.6397043999932,
+        "wer_percent": 23.44689378757515,
+        "cer_percent": 15.842787682333874,
+        "real_time_factor": 0.21712291074403156
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 114,
+          "reference_words": 1069,
+          "wer_percent": 10.664172123479888
+        },
+        "librispeech-clean": {
+          "errors": 16,
+          "reference_words": 384,
+          "wer_percent": 4.166666666666667
+        },
+        "librispeech-other": {
+          "errors": 32,
+          "reference_words": 540,
+          "wer_percent": 5.925925925925926
+        },
+        "ami-ihm": {
+          "errors": 56,
+          "reference_words": 459,
+          "wer_percent": 12.200435729847495
+        },
+        "ami-sdm": {
+          "errors": 176,
+          "reference_words": 539,
+          "wer_percent": 32.6530612244898
+        },
+        "reading": {
+          "errors": 162,
+          "reference_words": 1993,
+          "wer_percent": 8.128449573507275
+        },
+        "meetings": {
+          "errors": 232,
+          "reference_words": 998,
+          "wer_percent": 23.246492985971944
+        },
+        "all": {
+          "errors": 394,
+          "reference_words": 2991,
+          "wer_percent": 13.172851889000334
+        }
+      },
+      "load_seconds": 0.34780920000048354,
+      "long_audio_inference_seconds": 138.70242130000042,
+      "peak_resident_bytes": 1394249728,
+      "gpu_peak_increment_bytes": 0,
+      "gpu_peak_total_bytes": 993202176,
+      "model_weight_bytes": 983696512,
+      "scored_clip_rtf_p50": 0.22170592166998987,
+      "first_case_seconds_including_load": 15.461015200002294,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.23475664567495658,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "device": "cpu",
+      "label": "Nemotron 3.5 ASR Q8 CPU",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "whisper-base-cpu",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 55,
+          "reference_characters": 1646,
+          "character_errors": 158,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 12.132895500002633,
+          "wer_percent": 20.37037037037037,
+          "cer_percent": 9.59902794653706,
+          "real_time_factor": 0.07643184078506711
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 46.65720710000096,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.075765834643267
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 4.900972700001148,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.10174180511750322
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 1,
+          "reference_characters": 0,
+          "character_errors": 3,
+          "audio_seconds": 20.0,
+          "inference_seconds": 1.972216500002105,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.09861082500010525
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 228,
+          "reference_characters": 6336,
+          "character_errors": 933,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 73.27621359996192,
+          "wer_percent": 21.328344246959777,
+          "cer_percent": 14.725378787878787,
+          "real_time_factor": 0.1505139544818871
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 199,
+          "reference_characters": 7924,
+          "character_errors": 341,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 83.7371585999972,
+          "wer_percent": 15.620094191522764,
+          "cer_percent": 4.303382130237254,
+          "real_time_factor": 0.10201149842847405
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 34,
+          "reference_characters": 1976,
+          "character_errors": 78,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 32.818735800006834,
+          "wer_percent": 8.854166666666666,
+          "cer_percent": 3.9473684210526314,
+          "real_time_factor": 0.225946643178465
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 86,
+          "reference_characters": 2943,
+          "character_errors": 237,
+          "audio_seconds": 199.69,
+          "inference_seconds": 38.383718499997485,
+          "wer_percent": 15.925925925925926,
+          "cer_percent": 8.053007135575942,
+          "real_time_factor": 0.1922165281185712
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 212,
+          "reference_characters": 2330,
+          "character_errors": 884,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 39.42857460000596,
+          "wer_percent": 46.187363834422655,
+          "cer_percent": 37.93991416309013,
+          "real_time_factor": 0.24310114433692553
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 491,
+          "reference_characters": 2606,
+          "character_errors": 1949,
+          "audio_seconds": 167.76,
+          "inference_seconds": 41.013556199995946,
+          "wer_percent": 91.09461966604823,
+          "cer_percent": 74.78894858019954,
+          "real_time_factor": 0.24447756437765825
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 348,
+        "reference_characters": 11255,
+        "character_errors": 1248,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 144.47866789996624,
+        "wer_percent": 17.46111389864526,
+        "cer_percent": 11.088405153265215,
+        "real_time_factor": 0.17369818792962452
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 703,
+        "reference_characters": 4936,
+        "character_errors": 2833,
+        "audio_seconds": 329.95,
+        "inference_seconds": 80.4421308000019,
+        "wer_percent": 70.44088176352706,
+        "cer_percent": 57.39465153970826,
+        "real_time_factor": 0.2438009722685313
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 227,
+          "reference_words": 1069,
+          "wer_percent": 21.234798877455567
+        },
+        "librispeech-clean": {
+          "errors": 34,
+          "reference_words": 384,
+          "wer_percent": 8.854166666666666
+        },
+        "librispeech-other": {
+          "errors": 86,
+          "reference_words": 540,
+          "wer_percent": 15.925925925925926
+        },
+        "ami-ihm": {
+          "errors": 212,
+          "reference_words": 459,
+          "wer_percent": 46.187363834422655
+        },
+        "ami-sdm": {
+          "errors": 490,
+          "reference_words": 539,
+          "wer_percent": 90.9090909090909
+        },
+        "reading": {
+          "errors": 347,
+          "reference_words": 1993,
+          "wer_percent": 17.41093828399398
+        },
+        "meetings": {
+          "errors": 702,
+          "reference_words": 998,
+          "wer_percent": 70.34068136272545
+        },
+        "all": {
+          "errors": 1049,
+          "reference_words": 2991,
+          "wer_percent": 35.07188231360749
+        }
+      },
+      "load_seconds": 0.7919232999993255,
+      "long_audio_inference_seconds": 46.65720710000096,
+      "peak_resident_bytes": 770539520,
+      "gpu_peak_increment_bytes": 0,
+      "gpu_peak_total_bytes": 993202176,
+      "model_weight_bytes": 145217532,
+      "scored_clip_rtf_p50": 0.17609282767864984,
+      "first_case_seconds_including_load": 5.626877400001831,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.36777937192683824,
+      "negative_control_inserted_words": {
+        "control-silence": 1,
+        "control-noise": 0
+      },
+      "device": "cpu",
+      "label": "Whisper base INT8 CPU",
+      "secondary_full_corpus_verification": false
+    },
+    {
+      "model": "qwen-0.6b",
+      "case_count": 226,
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 58,
+          "reference_characters": 1646,
+          "character_errors": 186,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 43.96681700000045,
+          "wer_percent": 21.48148148148148,
+          "cer_percent": 11.300121506682867,
+          "real_time_factor": 0.27697137561017376
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 182.6468903999994,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.29659713806900756
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 4.188960899999074,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.08696078709690565
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 2,
+          "reference_characters": 0,
+          "character_errors": 6,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.6731623000014224,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03365811500007112
+        },
+        "fleurs-en": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1069,
+          "word_errors": 59,
+          "reference_characters": 6336,
+          "character_errors": 134,
+          "audio_seconds": 486.8400000000001,
+          "inference_seconds": 133.58693119999225,
+          "wer_percent": 5.519176800748363,
+          "cer_percent": 2.11489898989899,
+          "real_time_factor": 0.2743959641771264
+        },
+        "fleurs-it": {
+          "cases": 50,
+          "failures": 0,
+          "reference_words": 1274,
+          "word_errors": 70,
+          "reference_characters": 7924,
+          "character_errors": 150,
+          "audio_seconds": 820.8599999999999,
+          "inference_seconds": 221.28311119998034,
+          "wer_percent": 5.4945054945054945,
+          "cer_percent": 1.8929833417465927,
+          "real_time_factor": 0.26957472796820453
+        },
+        "librispeech-clean": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 384,
+          "word_errors": 12,
+          "reference_characters": 1976,
+          "character_errors": 23,
+          "audio_seconds": 145.24993749999996,
+          "inference_seconds": 50.63621640000201,
+          "wer_percent": 3.125,
+          "cer_percent": 1.1639676113360324,
+          "real_time_factor": 0.34861437651222416
+        },
+        "librispeech-other": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 540,
+          "word_errors": 24,
+          "reference_characters": 2943,
+          "character_errors": 58,
+          "audio_seconds": 199.69,
+          "inference_seconds": 69.48309159998826,
+          "wer_percent": 4.444444444444445,
+          "cer_percent": 1.9707781175671084,
+          "real_time_factor": 0.3479547879212192
+        },
+        "ami-ihm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 459,
+          "word_errors": 46,
+          "reference_characters": 2330,
+          "character_errors": 128,
+          "audio_seconds": 162.19000000000003,
+          "inference_seconds": 56.268621200011694,
+          "wer_percent": 10.021786492374728,
+          "cer_percent": 5.493562231759657,
+          "real_time_factor": 0.3469302743696386
+        },
+        "ami-sdm": {
+          "cases": 30,
+          "failures": 0,
+          "reference_words": 539,
+          "word_errors": 120,
+          "reference_characters": 2606,
+          "character_errors": 381,
+          "audio_seconds": 167.76,
+          "inference_seconds": 58.48683009999513,
+          "wer_percent": 22.263450834879407,
+          "cer_percent": 14.62010744435917,
+          "real_time_factor": 0.3486339419408389
+        }
+      },
+      "english_reading": {
+        "cases": 110,
+        "failures": 0,
+        "reference_words": 1993,
+        "word_errors": 95,
+        "reference_characters": 11255,
+        "character_errors": 215,
+        "audio_seconds": 831.7799374999994,
+        "inference_seconds": 253.70623919998252,
+        "wer_percent": 4.766683391871551,
+        "cer_percent": 1.9102621057307863,
+        "real_time_factor": 0.3050160598517474
+      },
+      "english_meetings": {
+        "cases": 60,
+        "failures": 0,
+        "reference_words": 998,
+        "word_errors": 166,
+        "reference_characters": 4936,
+        "character_errors": 509,
+        "audio_seconds": 329.95,
+        "inference_seconds": 114.75545130000683,
+        "wer_percent": 16.63326653306613,
+        "cer_percent": 10.311993517017829,
+        "real_time_factor": 0.34779648825581705
+      },
+      "english_spelling_normalized": {
+        "fleurs-en": {
+          "errors": 57,
+          "reference_words": 1069,
+          "wer_percent": 5.332086061739944
+        },
+        "librispeech-clean": {
+          "errors": 12,
+          "reference_words": 384,
+          "wer_percent": 3.125
+        },
+        "librispeech-other": {
+          "errors": 24,
+          "reference_words": 540,
+          "wer_percent": 4.444444444444445
+        },
+        "ami-ihm": {
+          "errors": 46,
+          "reference_words": 459,
+          "wer_percent": 10.021786492374728
+        },
+        "ami-sdm": {
+          "errors": 118,
+          "reference_words": 539,
+          "wer_percent": 21.89239332096475
+        },
+        "reading": {
+          "errors": 93,
+          "reference_words": 1993,
+          "wer_percent": 4.666332162568992
+        },
+        "meetings": {
+          "errors": 164,
+          "reference_words": 998,
+          "wer_percent": 16.432865731462925
+        },
+        "all": {
+          "errors": 257,
+          "reference_words": 2991,
+          "wer_percent": 8.592443998662654
+        }
+      },
+      "load_seconds": 36.085772300000826,
+      "long_audio_inference_seconds": 182.6468903999994,
+      "peak_resident_bytes": 2919837696,
+      "gpu_peak_increment_bytes": 2211110912,
+      "gpu_peak_total_bytes": 3204313088,
+      "model_weight_bytes": 1876091704,
+      "scored_clip_rtf_p50": 0.31676281174019716,
+      "first_case_seconds_including_load": 52.75774029999957,
+      "first_case_audio_seconds": 67.8826875,
+      "scored_clip_rtf_p95": 0.48126945750718086,
+      "negative_control_inserted_words": {
+        "control-silence": 1,
+        "control-noise": 1
+      },
+      "device": "cuda",
+      "label": "Qwen3-ASR 0.6B FP16 CUDA",
+      "secondary_full_corpus_verification": false
+    }
+  ],
+  "daily_profiles": [
+    {
+      "model": "whisper-small-cpu-int8",
+      "base": "whisper-small",
+      "status": "ok",
+      "changes": {
+        "device": "cpu",
+        "compute_type": "int8"
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 44,
+          "reference_characters": 1646,
+          "character_errors": 121,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 37.62252870000157,
+          "wer_percent": 16.296296296296298,
+          "cer_percent": 7.351154313487242,
+          "real_time_factor": 0.23700518343123567
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 149.4989925000009,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.24276883785205924
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 7.643752500000119,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.1586805772701525
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 1,
+          "reference_characters": 0,
+          "character_errors": 3,
+          "audio_seconds": 20.0,
+          "inference_seconds": 6.793544399995881,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.33967721999979406
+        }
+      },
+      "load_seconds": 1.5698863999969035,
+      "long_audio_inference_seconds": 149.4989925000009,
+      "peak_resident_bytes": 951156736,
+      "gpu_peak_increment_bytes": 0,
+      "negative_control_inserted_words": {
+        "control-silence": 1,
+        "control-noise": 0
+      },
+      "personal_word_error_delta": 0,
+      "long_inference_seconds_delta": 119.8316965999984
+    },
+    {
+      "model": "whisper-turbo-int8",
+      "base": "whisper-turbo",
+      "status": "ok",
+      "changes": {
+        "compute_type": "int8_float16"
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 31,
+          "reference_characters": 1646,
+          "character_errors": 100,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 5.021468100003403,
+          "wer_percent": 11.481481481481481,
+          "cer_percent": 6.075334143377885,
+          "real_time_factor": 0.03163301376218647
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 21.1906745999986,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03441117133911641
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 1.0869549999988521,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.022564656151084665
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 3,
+          "reference_characters": 0,
+          "character_errors": 12,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.5770254999988538,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.028851274999942687
+        }
+      },
+      "load_seconds": 4.608688899999834,
+      "long_audio_inference_seconds": 21.1906745999986,
+      "peak_resident_bytes": 2105139200,
+      "gpu_peak_increment_bytes": 1378541568,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 1
+      },
+      "personal_word_error_delta": 0,
+      "long_inference_seconds_delta": 1.6195607999979984
+    },
+    {
+      "model": "whisper-large-v3-int8",
+      "base": "whisper-large-v3",
+      "status": "ok",
+      "changes": {
+        "compute_type": "int8_float16"
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 28,
+          "reference_characters": 1646,
+          "character_errors": 88,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 16.97843969999667,
+          "wer_percent": 10.37037037037037,
+          "cer_percent": 5.34629404617254,
+          "real_time_factor": 0.10695661228836319
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 77.35496240000066,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.12561539051132928
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 7.886086200000136,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.163711306798354
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 4,
+          "reference_characters": 0,
+          "character_errors": 18,
+          "audio_seconds": 20.0,
+          "inference_seconds": 0.9423424000015075,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.047117120000075376
+        }
+      },
+      "load_seconds": 8.775543700001435,
+      "long_audio_inference_seconds": 77.35496240000066,
+      "peak_resident_bytes": 3564507136,
+      "gpu_peak_increment_bytes": 2485837824,
+      "negative_control_inserted_words": {
+        "control-silence": 2,
+        "control-noise": 2
+      },
+      "personal_word_error_delta": 0,
+      "long_inference_seconds_delta": 10.611303699999553
+    },
+    {
+      "model": "parakeet-q8-chunk90",
+      "base": "parakeet-q8",
+      "status": "ok",
+      "changes": {
+        "chunk_seconds": 90
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 35,
+          "reference_characters": 1646,
+          "character_errors": 102,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 34.936789899998985,
+          "wer_percent": 12.962962962962964,
+          "cer_percent": 6.1968408262454435,
+          "real_time_factor": 0.22008622452715296
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 138.0325453000005,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.2241486718262843
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 9.617242399999668,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.19964926595659793
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 3.5767692000008537,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.1788384600000427
+        }
+      },
+      "load_seconds": 0.34072399999786285,
+      "long_audio_inference_seconds": 138.0325453000005,
+      "peak_resident_bytes": 1970204672,
+      "gpu_peak_increment_bytes": 0,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "personal_word_error_delta": -4,
+      "long_inference_seconds_delta": 19.679062899998826
+    },
+    {
+      "model": "qwen-1.7b-chunk90",
+      "base": "qwen-1.7b",
+      "status": "ok",
+      "changes": {
+        "chunk_seconds": 90
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 44,
+          "reference_characters": 1646,
+          "character_errors": 156,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 43.401280300004146,
+          "wer_percent": 16.296296296296298,
+          "cer_percent": 9.477521263669502,
+          "real_time_factor": 0.27340874614450167
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 181.99132920000193,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.29553258353253276
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 5.267506500000309,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.10935086820175255
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 6,
+          "reference_characters": 0,
+          "character_errors": 24,
+          "audio_seconds": 20.0,
+          "inference_seconds": 1.2032674000001862,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.060163370000009306
+        }
+      },
+      "load_seconds": 15.803587099999277,
+      "long_audio_inference_seconds": 181.99132920000193,
+      "peak_resident_bytes": 5265014784,
+      "gpu_peak_increment_bytes": 5778366464,
+      "negative_control_inserted_words": {
+        "control-silence": 3,
+        "control-noise": 3
+      },
+      "personal_word_error_delta": -3,
+      "long_inference_seconds_delta": -14.77121139999872
+    },
+    {
+      "model": "canary-1b-v2-chunk90",
+      "base": "canary-1b-v2",
+      "status": "ok",
+      "changes": {
+        "chunk_seconds": 90
+      },
+      "groups": {
+        "personal-it": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 270,
+          "word_errors": 117,
+          "reference_characters": 1646,
+          "character_errors": 612,
+          "audio_seconds": 158.741375,
+          "inference_seconds": 8.131862700000056,
+          "wer_percent": 43.333333333333336,
+          "cer_percent": 37.18104495747266,
+          "real_time_factor": 0.05122711517397437
+        },
+        "unscored-long": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 615.808,
+          "inference_seconds": 22.053574599998683,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.03581241978018909
+        },
+        "unscored-short": {
+          "cases": 1,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 48.1706875,
+          "inference_seconds": 2.241183000001911,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.046525867001626475
+        },
+        "negative-controls": {
+          "cases": 2,
+          "failures": 0,
+          "reference_words": 0,
+          "word_errors": 0,
+          "reference_characters": 0,
+          "character_errors": 0,
+          "audio_seconds": 20.0,
+          "inference_seconds": 1.2618683000000601,
+          "wer_percent": null,
+          "cer_percent": null,
+          "real_time_factor": 0.06309341500000301
+        }
+      },
+      "load_seconds": 15.146741900000052,
+      "long_audio_inference_seconds": 22.053574599998683,
+      "peak_resident_bytes": 1903411200,
+      "gpu_peak_increment_bytes": 2634735616,
+      "negative_control_inserted_words": {
+        "control-silence": 0,
+        "control-noise": 0
+      },
+      "personal_word_error_delta": 70,
+      "long_inference_seconds_delta": -9.357171200001176
+    }
+  ],
+  "native_flow": [
+    {
+      "model": "live-q8",
+      "cases": 2,
+      "reference_words": 270,
+      "word_errors": 34,
+      "wer_percent": 12.592592592592593,
+      "cer_percent": 6.318347509113001,
+      "elapsed_seconds_including_load": 41.874598599999445,
+      "peak_resident_bytes": 1325719552
+    },
+    {
+      "model": "review-q8",
+      "cases": 2,
+      "reference_words": 270,
+      "word_errors": 33,
+      "wer_percent": 12.222222222222221,
+      "cer_percent": 6.257594167679223,
+      "elapsed_seconds_including_load": 41.96167020000212,
+      "peak_resident_bytes": 1272852480
+    }
+  ],
+  "incomplete_candidate": {
+    "model": "parakeet-redux-packed",
+    "status": "not_completed",
+    "first_case_audio_seconds": 67.8826875,
+    "elapsed_wall_seconds_lower_bound": 141.31623199999999,
+    "first_result_latency_rtf_lower_bound": 2.0817713205594575,
+    "peak_resident_bytes": 729145344,
+    "completed_cases": 0,
+    "weight_bytes": 213319296,
+    "reason": "Official CPU library selected slow scalar ternary kernel. First audio remained unfinished beyond real-time duration; interrupted as unsuitable for daily use in this runtime.",
+    "memory_scope": "Windows peak working set before interruption",
+    "time_scope": "First-result wall latency from process start, including setup, weight identity checks, model load and WAV read; audio still incomplete."
+  },
+  "native_regression": {
+    "live_failed_cases": 2,
+    "exception_code": "0xc0000005",
+    "windows_faulting_module": "VCOMP140.DLL_unloaded"
+  },
+  "download_accounting": {
+    "model_configs_docs_and_runtime_archives_bytes": 21281882261,
+    "saved_wheels_bytes": 3343344369,
+    "dataset_directory_bytes_conservative": 2003986307,
+    "english_spelling_dictionary_bytes": 52666,
+    "note": "Conservative new-download bound: dataset directory includes extracted local copies and synthetic controls. Preexisting Parakeet Q8 and Whisper base are reused and excluded. Installed/uncompressed environments occupy additional disk space.",
+    "conservative_total_bytes": 26629265603
+  },
+  "primary_normalization": "nfkc-casefold-punctuation-v1",
+  "english_secondary_normalization": {
+    "repository": "openai/whisper-large-v3",
+    "revision": "06f233fe06e710322aca913c1bc4249a0d71fce1",
+    "operation": "Apply only the British/American spelling dictionary to already normalized word tokens. Preserve parenthetical speech, numbers, contractions and fillers. Raw WER remains the primary metric."
+  },
+  "public_it_paired_bootstrap": {
+    "group": "fleurs-it",
+    "cases": 50,
+    "resampling_unit": "utterance",
+    "draws": 5000,
+    "seed": 20261009,
+    "interpretation": "Exploratory paired percentile bootstrap on this selected public subset; does not establish a universal model ranking or a personal-meeting confidence interval.",
+    "comparisons": [
+      {
+        "left": "parakeet-f16",
+        "right": "parakeet-q8",
+        "difference_wer_percentage_points_95_interval": [
+          -0.35212509187707364,
+          0.16723810913335246
+        ]
+      },
+      {
+        "left": "parakeet-q4",
+        "right": "parakeet-q8",
+        "difference_wer_percentage_points_95_interval": [
+          -0.31975059952038376,
+          0.7371765081469018
+        ]
+      },
+      {
+        "left": "whisper-large-v3",
+        "right": "parakeet-q8",
+        "difference_wer_percentage_points_95_interval": [
+          -1.508869692671584,
+          0.3736990652387548
+        ]
+      },
+      {
+        "left": "whisper-turbo",
+        "right": "whisper-large-v3",
+        "difference_wer_percentage_points_95_interval": [
+          0.0,
+          1.2987276736261297
+        ]
+      },
+      {
+        "left": "qwen-1.7b",
+        "right": "parakeet-q8",
+        "difference_wer_percentage_points_95_interval": [
+          -0.5933152036428029,
+          1.4937610869214637
+        ]
+      },
+      {
+        "left": "canary-1b-v2",
+        "right": "parakeet-q8",
+        "difference_wer_percentage_points_95_interval": [
+          0.36626994030906157,
+          3.3033328371644655
+        ]
+      }
+    ]
+  },
+  "repeat_checks": {
+    "parakeet-q8-cuda": {
+      "cases": 166,
+      "normalized_transcript_change_count": 0,
+      "first_case_seconds_including_load": 47.44563659999767,
+      "repeated_first_case_seconds_including_load": 1.4950632000036421
+    },
+    "parakeet-q8": {
+      "cases": 166,
+      "normalized_transcript_change_count": 0,
+      "first_case_seconds_including_load": 14.87538719999975,
+      "repeated_first_case_seconds_including_load": 13.199262400001317
+    },
+    "parakeet-f16": {
+      "cases": 166,
+      "normalized_transcript_change_count": 0,
+      "first_case_seconds_including_load": 20.835520600001473,
+      "repeated_first_case_seconds_including_load": 16.073319200000697
+    }
+  }
+}
