@@ -1,5 +1,9 @@
 # Sample e confronti della trascrizione
 
+Per confrontare anche Whisper, Qwen3-ASR e Canary con modelli residenti, tempi
+di caricamento separati e picchi RAM/VRAM, vedere
+[il runner di confronto fra motori](MEETING_ASR_BENCHMARK.md).
+
 Il banco prova confronta trascrizioni grezze sullo stesso audio con un testo di
 riferimento verificato ascoltandolo. Misura WER (errori sulle parole), CER (errori
 sui caratteri), tempo e picco di RAM del processo ASR. Conserva input, output,
