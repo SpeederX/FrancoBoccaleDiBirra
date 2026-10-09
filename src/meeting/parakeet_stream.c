@@ -53,6 +53,19 @@ FbParakeetStream *fb_parakeet_stream_open(const char *library, const char *asr, 
         snprintf(error, capacity, "could not load the Parakeet library; use /meeting setup library <path>");
         goto failed;
     }
+#ifdef _WIN32
+    HMODULE openmp = GetModuleHandleA("VCOMP140.DLL");
+    if (openmp) {
+        /* OpenMP workers outlive a scene. Unloading their runtime caused
+           0xc0000005 in VCOMP140.DLL_unloaded after completed transcriptions. */
+        HMODULE pinned;
+        if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                               (LPCSTR)openmp, &pinned)) {
+            snprintf(error, capacity, "could not retain the Parakeet OpenMP runtime");
+            goto failed;
+        }
+    }
+#endif
     RESOLVE(abi, "parakeet_capi_abi_version");
     RESOLVE(load, "parakeet_capi_load");
     RESOLVE(load_component, "parakeet_capi_load_component");

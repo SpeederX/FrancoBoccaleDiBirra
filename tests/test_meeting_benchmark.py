@@ -14,6 +14,35 @@ import meeting_eval as evaluation
 
 
 class Benchmark(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Windows DLL lifetime regression")
+    def test_windows_parakeet_keeps_workers_loaded_and_releases_cuda_before_exit(self):
+        library = mock.MagicMock()
+        library.parakeet_capi_abi_version.return_value = 10
+        library.parakeet_capi_load.return_value = 42
+        library._handle = 123
+        kernel = mock.MagicMock()
+        kernel.GetModuleHandleA.return_value = 101
+        kernel.GetModuleHandleExA.return_value = 1
+        kernel.FreeLibrary.return_value = 1
+        sequence = mock.Mock()
+        sequence.attach_mock(library.parakeet_capi_free, "free_context")
+        sequence.attach_mock(kernel.FreeLibrary, "free_library")
+        with mock.patch.object(benchmark.ctypes, "CDLL", return_value=library), \
+             mock.patch.object(benchmark.ctypes, "WinDLL", return_value=kernel):
+            engine = benchmark.Parakeet({"library": "fixture.dll", "model": "fixture.gguf"})
+            self.assertEqual(kernel.GetModuleHandleExA.call_args.args[:2], (5, 101))
+            engine.close()
+            self.assertEqual(sequence.mock_calls, [mock.call.free_context(42), mock.call.free_library(123)])
+
+            kernel.GetModuleHandleA.return_value = None
+            kernel.GetModuleHandleExA.reset_mock()
+            engine = benchmark.Parakeet({"library": "fixture.dll", "model": "fixture.gguf"})
+            kernel.GetModuleHandleExA.assert_not_called()
+            kernel.FreeLibrary.return_value = 0
+            with mock.patch.object(benchmark.ctypes, "get_last_error", return_value=6):
+                with self.assertRaises(OSError):
+                    engine.close()
+
     def test_groups_use_total_errors_and_words_instead_of_average_clip_wer(self):
         first = {"group": "italian", "status": "ok", "audio_seconds": 10, "inference_seconds": 2,
                  "scored": True, "words": {"reference_units": 10, "errors": 5},

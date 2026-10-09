@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "platform/platform.h"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #ifdef _WIN32
 #define EXPORT __declspec(dllexport)
 #else
@@ -10,6 +13,13 @@
 typedef struct { double time; int chunk; } Scene;
 EXPORT int parakeet_capi_abi_version(void) { return 10; }
 EXPORT void *parakeet_capi_load(const char *path) {
+#ifdef _OPENMP
+#pragma omp parallel num_threads(2)
+    {
+        volatile int worker = omp_get_thread_num();
+        (void)worker;
+    }
+#endif
     return strcmp(path, "badload") == 0 ? NULL : malloc(1);
 }
 EXPORT void *parakeet_capi_load_component(const char *path, const char *component) {

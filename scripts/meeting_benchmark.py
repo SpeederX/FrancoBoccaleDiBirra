@@ -106,6 +106,21 @@ class Monitor:
 class Parakeet:
     def __init__(self, variant):
         self.lib = ctypes.CDLL(variant["library"])
+        self.kernel32 = None
+        if sys.platform == "win32":
+            self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            self.kernel32.GetModuleHandleA.argtypes = [ctypes.c_char_p]
+            self.kernel32.GetModuleHandleA.restype = ctypes.c_void_p
+            self.kernel32.GetModuleHandleExA.argtypes = [ctypes.c_uint32, ctypes.c_void_p,
+                                                       ctypes.POINTER(ctypes.c_void_p)]
+            self.kernel32.GetModuleHandleExA.restype = ctypes.c_int
+            self.kernel32.FreeLibrary.argtypes = [ctypes.c_void_p]
+            self.kernel32.FreeLibrary.restype = ctypes.c_int
+            openmp = self.kernel32.GetModuleHandleA(b"VCOMP140.DLL")
+            if openmp:
+                pinned = ctypes.c_void_p()
+                if not self.kernel32.GetModuleHandleExA(1 | 4, openmp, ctypes.byref(pinned)):
+                    raise ctypes.WinError(ctypes.get_last_error())
         signatures = {
             "parakeet_capi_abi_version": ([], ctypes.c_int),
             "parakeet_capi_load": ([ctypes.c_char_p], ctypes.c_void_p),
@@ -143,6 +158,10 @@ class Parakeet:
 
     def close(self):
         self.lib.parakeet_capi_free(self.context)
+        if self.kernel32:
+            # Release CUDA globals before process shutdown tears down the CUDA driver.
+            if not self.kernel32.FreeLibrary(self.lib._handle):
+                raise ctypes.WinError(ctypes.get_last_error())
 
 
 class Whisper:

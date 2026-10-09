@@ -8,6 +8,9 @@
 #include "platform/platform.h"
 #include "util/paths.h"
 #include "util/fileutil.h"
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
 
 static void await_revision(FbMeetingJob *job, unsigned long long *revision, int utterances) {
     unsigned long long limit = fb_now_ms() + 5000;
@@ -62,6 +65,9 @@ int main(int argc, char **argv) {
     assert(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(utterances, 2), "speaker")->valueint == 1);
     assert(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(utterances, 2), "end")->valuedouble == 45);
     fb_meeting_job_free(job);
+#ifdef _MSC_VER
+    assert(GetModuleHandleA("VCOMP140.DLL") != NULL);
+#endif
     assert(fb_meeting_document_name(doc, 1, "Alice", status.message, sizeof(status.message)) == 0);
     job = fb_meeting_job_start(FB_MEETING_JOB_TRANSCRIBE_PREVIEW, &config, "test-stream-state", NULL, NULL, doc, 0, NULL);
     assert(job);
