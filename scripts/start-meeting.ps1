@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Executable = (Join-Path $PSScriptRoot '..\build\native\Release\fbdb.exe'),
+    [string]$Executable,
     [string]$AssetsDirectory = (Join-Path $env:LOCALAPPDATA 'FrancoBoccaleDiBirra\external\meeting'),
     [string]$FFmpeg = 'ffmpeg',
     [ValidateRange(0, 65535)][int]$LlmPort = 0,
@@ -12,6 +12,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (!$Executable) {
+    $Executable = Join-Path $PSScriptRoot '..\build\native\Release\fbdb.exe'
+}
 $Executable = [System.IO.Path]::GetFullPath($Executable)
 $AssetsDirectory = [System.IO.Path]::GetFullPath($AssetsDirectory)
 $parakeet = Join-Path $AssetsDirectory 'parakeet-v0.6.1-bin-win-cpu-x64\parakeet-cli.exe'
