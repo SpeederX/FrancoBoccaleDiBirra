@@ -14,6 +14,7 @@ int fb_meeting_document_name(cJSON *document, int speaker, const char *name,
 int fb_meeting_document_apply(cJSON *document, const char *response, int first, int count,
                               char *error, size_t capacity);
 char *fb_meeting_document_text(const cJSON *document, int cleaned);
+char *fb_meeting_document_speech(const cJSON *document);
 char *fb_meeting_document_part(const cJSON *document, int first, int count);
 
 #endif

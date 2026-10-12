@@ -33,6 +33,8 @@ if (Python3_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_benchmark.py)
     add_test(NAME meeting_error_audit COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_error_audit.py)
+    add_test(NAME meeting_read COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_read.py)
 endif()
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
@@ -121,6 +123,10 @@ target_compile_definitions(test_meeting_capture PRIVATE FB_TEST_CAPTURE_FIXTURE)
 target_compile_options(test_meeting_capture PRIVATE $<$<C_COMPILER_ID:MSVC>:/UNDEBUG> $<$<NOT:$<C_COMPILER_ID:MSVC>>:-UNDEBUG>)
 target_link_libraries(test_meeting_capture PRIVATE fb_warnings miniaudio cjson)
 add_test(NAME meeting_capture COMMAND test_meeting_capture $<TARGET_FILE:meeting_parakeet_fixture>)
+if (WIN32 AND Python3_FOUND)
+    add_test(NAME meeting_tts COMMAND test_meeting_capture --tts ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/meeting_read_fixture.py $<TARGET_FILE:meeting_parakeet_fixture>)
+endif()
 get_target_property(fb_meeting_definitions fbdb COMPILE_DEFINITIONS)
 target_compile_definitions(test_meeting_ui PRIVATE ${fb_meeting_definitions})
 target_compile_definitions(test_meeting_capture PRIVATE ${fb_meeting_definitions})

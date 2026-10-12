@@ -35,6 +35,9 @@ typedef struct {
     int meeting_capture_source;
     char meeting_microphone[256];
     char meeting_output_device[256];
+    char meeting_tts_python[512];
+    char meeting_tts_script[512];
+    char meeting_tts_model[512];
     int meeting_llm_port;
 
     /* Diary mode's page/memory thresholds -- 0 means "use the built-in

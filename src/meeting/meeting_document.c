@@ -427,7 +427,7 @@ char *fb_meeting_document_part(const cJSON *document, int first, int count) {
     return result;
 }
 
-char *fb_meeting_document_text(const cJSON *document, int cleaned) {
+static char *document_text(const cJSON *document, int cleaned, int timestamps) {
     size_t length = 1;
     cJSON *utterance;
     cJSON_ArrayForEach(utterance, field(document, "utterances")) {
@@ -457,12 +457,25 @@ char *fb_meeting_document_text(const cJSON *document, int cleaned) {
         if (!text) {
             text = field(utterance, "text");
         }
-        int written = snprintf(result + offset, length - offset, "[%.2f - %.2f] %s: %s%s\n",
-                               field(utterance, "start")->valuedouble,
-                               field(utterance, "end")->valuedouble, label, pending, text->valuestring);
+        int written;
+        if (timestamps) {
+            written = snprintf(result + offset, length - offset, "[%.2f - %.2f] %s: %s%s\n",
+                field(utterance, "start")->valuedouble, field(utterance, "end")->valuedouble,
+                label, pending, text->valuestring);
+        } else {
+            written = snprintf(result + offset, length - offset, "%s: %s\n", label, text->valuestring);
+        }
         if (written > 0) {
             offset += (size_t)written;
         }
     }
     return result;
+}
+
+char *fb_meeting_document_text(const cJSON *document, int cleaned) {
+    return document_text(document, cleaned, 1);
+}
+
+char *fb_meeting_document_speech(const cJSON *document) {
+    return document_text(document, 0, 0);
 }

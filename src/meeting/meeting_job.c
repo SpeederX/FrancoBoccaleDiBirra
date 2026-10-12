@@ -673,6 +673,32 @@ done:
     return result;
 }
 
+static int read_aloud(FbMeetingJob *job) {
+#ifdef _WIN32
+    if (cancelled(job)) {
+        return -1;
+    }
+    char input[700];
+    snprintf(input, sizeof(input), "%s/tts-input.txt", job->directory);
+    if (fb_write_file_atomic(input, job->notes) != 0) {
+        message(job, "could not save the local text snapshot for reading");
+        return -1;
+    }
+    const char *args[] = {job->config.tts_python, job->config.tts_script,
+        "--model", job->config.tts_model, "--input", input, NULL};
+    message(job, "Piper: reading locally; /meeting read stop interrupts playback");
+    int result = child_process(job, args, "tts.stderr.log", "tts.progress.log");
+    remove(input);
+    if (result == 0) {
+        message(job, "reading complete; recording can resume with Ctrl+Space");
+    }
+    return result;
+#else
+    message(job, "Piper playback is currently available on Windows");
+    return -1;
+#endif
+}
+
 static void worker(void *arg) {
     FbMeetingJob *job = arg;
     int result = -1;
@@ -683,6 +709,8 @@ static void worker(void *arg) {
         result = process(job);
     } else if (job->operation == FB_MEETING_JOB_IDENTIFY) {
         result = identify(job);
+    } else if (job->operation == FB_MEETING_JOB_READ) {
+        result = read_aloud(job);
     } else if (job->operation == FB_MEETING_JOB_SAVE) {
         result = save_text(job->directory, "notes.txt", job->notes);
         message(job, result == 0 ? "notes saved locally" : "notes could not be saved; keep the app open and retry");

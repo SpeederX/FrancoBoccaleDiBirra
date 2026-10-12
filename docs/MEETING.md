@@ -115,6 +115,61 @@ or configured using `/meeting setup ffmpeg <executable path>` (or the launcher's
 `-FFmpeg` parameter). The original file is retained unchanged. Each meeting has
 one recording/import; create another meeting for another source.
 
+## Read notes or transcript with Piper
+
+Reading is explicit and local. On Windows, prepare the optional CPU voice once:
+
+```powershell
+.\scripts\prepare-meeting-tts.ps1
+.\scripts\start-meeting.ps1
+```
+
+Preparation installs Piper 1.8.0 in its own Python environment and downloads the
+Italian `it_IT-paola-medium` voice (about 64 MB for the voice files, plus runtime
+dependencies). Models and provenance/licence files are stored under
+`%LOCALAPPDATA%\FrancoBoccaleDiBirra\external\tts`; use `-AssetsDirectory` when
+preparing and `-TtsAssetsDirectory` when launching to choose another folder.
+`-Python` selects the Python used to create the environment. The launcher detects
+prepared assets; `-TtsModel <path.onnx>` selects another installed Piper voice.
+Its `.onnx.json` configuration must be alongside the model.
+
+In Meeting, press F8 and use:
+
+```text
+/meeting read notes
+/meeting read transcript
+/meeting read stop
+```
+
+Reading is available only after recording has fully paused or the meeting has
+closed, including reopened meetings. It cannot begin while devices are opening,
+recording, or stopping. Recording cannot start/resume while Piper is loading,
+playing, or being stopped. The `READING` hint shows the state; `read stop` ends
+the local synthesis/playback process before recording becomes available again.
+Notes and commands remain usable during playback. There is no automatic reading
+on F6 or after LLM processing.
+
+The chosen text is copied at the time of the command. Reading notes preserves
+their content; reading the raw transcript includes speaker labels and names but
+omits timestamps from spoken output. It reads the full snapshot rather than only
+the visible screen rows. Piper generates and plays speech in blocks with a
+single loaded voice per request. Editing text during playback affects the next
+reading request. Original recordings, notes and transcripts are retained.
+
+The text snapshot `tts-input.txt` is removed when reading completes or is stopped;
+`tts.progress.log` and `tts.stderr.log` remain in the meeting folder for diagnostics.
+Speech is synthesized in memory and played through the Windows default audio
+output. No meeting text is uploaded, and the TTS job does not open recording
+devices or create another recording. It uses CPU inference and does not load a
+GPU model. Voice quality and pronunciation should be checked by listening.
+
+Manual configuration also uses `/meeting setup tts-python|tts-script|tts-model
+<path>`; corresponding session overrides are `--tts-python`, `--tts-script`,
+`--tts-model`. The helper currently uses Windows playback.
+
+Sources: [Piper](https://github.com/OHF-Voice/piper1-gpl),
+[voice repository](https://huggingface.co/rhasspy/piper-voices/tree/main/it/it_IT/paola/medium).
+
 ## Retained data and processing
 
 By default, meetings are stored beside **the executable**, in

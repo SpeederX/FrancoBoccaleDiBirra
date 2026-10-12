@@ -51,6 +51,9 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         {"meeting_parakeet_library", cfg->meeting_parakeet_library, sizeof(cfg->meeting_parakeet_library)},
         {"meeting_microphone", cfg->meeting_microphone, sizeof(cfg->meeting_microphone)},
         {"meeting_output_device", cfg->meeting_output_device, sizeof(cfg->meeting_output_device)},
+        {"meeting_tts_python", cfg->meeting_tts_python, sizeof(cfg->meeting_tts_python)},
+        {"meeting_tts_script", cfg->meeting_tts_script, sizeof(cfg->meeting_tts_script)},
+        {"meeting_tts_model", cfg->meeting_tts_model, sizeof(cfg->meeting_tts_model)},
     };
     for (size_t i = 0; i < sizeof(str_fields) / sizeof(str_fields[0]); ++i) {
         cJSON *v = cJSON_GetObjectItemCaseSensitive(root, str_fields[i].key);
@@ -115,6 +118,9 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "meeting_parakeet_library", cfg->meeting_parakeet_library);
     cJSON_AddStringToObject(root, "meeting_microphone", cfg->meeting_microphone);
     cJSON_AddStringToObject(root, "meeting_output_device", cfg->meeting_output_device);
+    cJSON_AddStringToObject(root, "meeting_tts_python", cfg->meeting_tts_python);
+    cJSON_AddStringToObject(root, "meeting_tts_script", cfg->meeting_tts_script);
+    cJSON_AddStringToObject(root, "meeting_tts_model", cfg->meeting_tts_model);
     cJSON_AddNumberToObject(root, "meeting_capture_source", cfg->meeting_capture_source);
     cJSON_AddNumberToObject(root, "meeting_llm_port", cfg->meeting_llm_port);
     cJSON_AddNumberToObject(root, "diary_page_close_chars", cfg->diary_page_close_chars);

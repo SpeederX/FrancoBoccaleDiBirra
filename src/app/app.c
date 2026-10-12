@@ -609,6 +609,10 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
     }
 
     if (ev->type == FB_EVENT_KEY) {
+        if (ev->key == FB_KEY_CTRL_SPACE && app->meeting.read_job && app->input_mode != FB_INPUT_MODE_MEETING) {
+            snprintf(app->last_submitted, FB_CMDLINE_MAX, "Piper is reading; /meeting read stop ends playback before recording");
+            return 0;
+        }
         if (ev->key == FB_KEY_CTRL_C) {
             app->running = 0;
             return 1;
@@ -990,7 +994,15 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                         snprintf(app->meeting.llm_model, sizeof(app->meeting.llm_model), "%s", target->name);
                     }
                 }
-                int changed = fb_meeting_command(&app->meeting, app->cmdline.buf + 8);
+                const char *meeting_command = app->cmdline.buf + 8;
+                meeting_command += strspn(meeting_command, " \t");
+                size_t verb_length = strcspn(meeting_command, " \t");
+                if (app->recording && verb_length == 4 && strncmp(meeting_command, "read", 4) == 0) {
+                    snprintf(app->meeting.status, sizeof(app->meeting.status), "stop the microphone recording in its original mode before reading text");
+                    fb_cmdline_clear(&app->cmdline);
+                    return 0;
+                }
+                int changed = fb_meeting_command(&app->meeting, meeting_command);
                 if (changed == 1 && fb_config_save(&app->config, app->data_dir) != 0) {
                     snprintf(app->meeting.status, sizeof(app->meeting.status), "setting applied but config.json could not be saved");
                 }

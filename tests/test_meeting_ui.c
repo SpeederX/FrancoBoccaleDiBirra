@@ -50,7 +50,7 @@ static void type(FbApp *app, const char *text) {
 
 static void idle(FbMeeting *meeting) {
     unsigned long long deadline = fb_now_ms() + 5000;
-    while (meeting->job || meeting->asr_job || meeting->save_job || meeting->devices_job || meeting->document_dirty) {
+    while (meeting->job || meeting->asr_job || meeting->read_job || meeting->save_job || meeting->devices_job || meeting->document_dirty) {
         fb_meeting_tick(meeting);
         assert(fb_now_ms() < deadline);
         fb_sleep_ms(5);
@@ -229,6 +229,124 @@ static int capture_smoke(int argc, char **argv) {
 #ifdef FB_TEST_CAPTURE_FIXTURE
 void fb_capture_fixture_ready(FbSystemCapture *capture, int fail);
 
+static int reading_test(const char *python, const char *script, const char *library) {
+    assert(fb_ensure_dir("reading-test-state") == 0);
+#ifdef _WIN32
+    assert(_putenv_s("LOCALAPPDATA", "reading-test-state") == 0);
+#endif
+    FbApp *app = calloc(1, sizeof(*app));
+    assert(app);
+    fb_app_init_mode(app, 120, 36, FB_INPUT_MODE_MEETING);
+    assert(fb_meeting_command(&app->meeting, "read invalid") == -1);
+    assert(fb_meeting_command(&app->meeting, "read stop") == -1);
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    app->meeting.paused = 1;
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    snprintf(app->config.meeting_tts_python, 512, "%s", python);
+    snprintf(app->config.meeting_tts_script, 512, "%s", script);
+    snprintf(app->config.meeting_tts_model, 512, "slow");
+    char setup[700];
+    snprintf(setup, sizeof(setup), "setup tts-model slow");
+    assert(fb_meeting_command(&app->meeting, setup) == 1);
+    assert(fb_config_save(&app->config, app->data_dir) == 0);
+    FbConfig restored;
+    assert(fb_config_load(&restored, app->data_dir) == 0);
+    assert(strcmp(restored.meeting_tts_python, python) == 0);
+    assert(strcmp(restored.meeting_tts_script, script) == 0);
+    assert(strcmp(restored.meeting_tts_model, "slow") == 0);
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    assert(fb_meeting_command(&app->meeting, "read transcript") == -1);
+    fb_notepad_set(&app->meeting.notes, " \n\t");
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    fb_notepad_set(&app->meeting.notes, "Appunti di prova.\nSeconda riga.");
+    key(app, FB_KEY_F8, 0);
+    app->recording = 1;
+    type(app, "/meeting read notes");
+    key(app, FB_KEY_ENTER, 0);
+    assert(!app->meeting.read_job);
+    app->recording = 0;
+    key(app, FB_KEY_F8, 0);
+    assert(fb_meeting_command(&app->meeting, "read notes") == 0);
+    app->input_mode = FB_INPUT_MODE_SCRATCHPAD;
+    app->mic_available = 1;
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(!app->recording);
+    app->input_mode = FB_INPUT_MODE_MEETING;
+    app->mic_available = 0;
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    assert(fb_meeting_command(&app->meeting, "record") == -1);
+    assert(fb_meeting_command(&app->meeting, "new") == -1);
+    char observed[700];
+    snprintf(observed, sizeof(observed), "%s/tts-input.txt.observed", app->meeting.directory);
+    unsigned long long deadline = fb_now_ms() + 5000;
+    unsigned long long bytes;
+    while (!fb_file_size(observed, &bytes)) {
+        fb_app_tick(app);
+        assert(fb_now_ms() < deadline);
+        fb_sleep_ms(5);
+    }
+    char *snapshot = fb_read_file(observed, NULL);
+    assert(snapshot && strcmp(snapshot, app->meeting.notes.text) == 0);
+    free(snapshot);
+    type(app, " Notes remain editable while reading.");
+    fb_screen_clear();
+    fb_app_render(app);
+    save_screen("meeting-ui-reading.json");
+    assert(fb_meeting_command(&app->meeting, "read stop") == 0);
+    assert(fb_meeting_command(&app->meeting, "record") == -1);
+    idle(&app->meeting);
+    assert(strstr(app->meeting.status, "reading stopped"));
+    snprintf(app->meeting.tools.parakeet_library, 512, "%s", library);
+    snprintf(app->meeting.tools.asr_model, 512, "fixture");
+    snprintf(app->meeting.tools.diar_model, 512, "fixture");
+    assert(fb_meeting_command(&app->meeting, "record") == 0);
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(fb_meeting_command(&app->meeting, "read notes") == -1);
+    fb_app_tick(app);
+    assert(fb_meeting_command(&app->meeting, "finish") == 0);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished);
+    char error[256];
+    cJSON_Delete(app->meeting.document);
+    app->meeting.document = fb_meeting_document_parse(
+        "{\"utterances\":[{\"speaker\":0,\"text\":\"Trascrizione di prova.\",\"start\":0,\"end\":1}]}", error, sizeof(error));
+    assert(fb_meeting_command(&app->meeting, "setup tts-model normal") == 1);
+    assert(fb_meeting_command(&app->meeting, "read transcript") == 0);
+    idle(&app->meeting);
+    assert(strstr(app->meeting.status, "reading complete"));
+    snapshot = fb_read_file(observed, NULL);
+    assert(snapshot && strstr(snapshot, "Trascrizione di prova.") && !strstr(snapshot, "Appunti"));
+    assert(!strstr(snapshot, "[0.00"));
+    free(snapshot);
+    assert(fb_meeting_command(&app->meeting, "save") == 0);
+    idle(&app->meeting);
+    char saved_directory[700];
+    snprintf(saved_directory, sizeof(saved_directory), "open %s", app->meeting.directory);
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    assert(fb_meeting_command(&app->meeting, saved_directory) == 0);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished && !app->meeting.paused);
+    assert(fb_meeting_command(&app->meeting, "read notes") == 0);
+    idle(&app->meeting);
+    assert(fb_meeting_command(&app->meeting, "setup tts-model fail") == 1);
+    assert(fb_meeting_command(&app->meeting, "read notes") == 0);
+    idle(&app->meeting);
+    assert(strstr(app->meeting.status, "local tool failed"));
+    assert(fb_meeting_command(&app->meeting, "setup tts-model slow") == 1);
+    assert(fb_meeting_command(&app->meeting, "read notes") == 0);
+    fb_app_shutdown(app);
+    assert(!app->meeting.read_job);
+    free(app);
+    return 0;
+}
+
 static int capture_startup_test(const char *library) {
     assert(fb_ensure_dir("capture-startup-state") == 0);
 #ifdef _WIN32
@@ -313,6 +431,11 @@ static int capture_startup_test(const char *library) {
 int main(int argc, char **argv) {
     fb_sock_platform_init();
 #ifdef FB_TEST_CAPTURE_FIXTURE
+    if (argc == 5 && strcmp(argv[1], "--tts") == 0) {
+        int result = reading_test(argv[2], argv[3], argv[4]);
+        fb_sock_platform_cleanup();
+        return result;
+    }
     assert(argc == 2);
     int result = capture_startup_test(argv[1]);
     fb_sock_platform_cleanup();

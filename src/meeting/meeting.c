@@ -19,6 +19,9 @@ static void refresh_tools(FbMeeting *meeting) {
     snprintf(meeting->tools.asr_model, 512, "%s", cfg->meeting_asr_model);
     snprintf(meeting->tools.diar_model, 512, "%s", cfg->meeting_diar_model);
     snprintf(meeting->tools.parakeet_library, 512, "%s", cfg->meeting_parakeet_library);
+    snprintf(meeting->tools.tts_python, 512, "%s", cfg->meeting_tts_python);
+    snprintf(meeting->tools.tts_script, 512, "%s", cfg->meeting_tts_script);
+    snprintf(meeting->tools.tts_model, 512, "%s", cfg->meeting_tts_model);
     snprintf(meeting->tools.ffmpeg_exe, 512, "%s", cfg->meeting_ffmpeg_exe[0]
                  ? cfg->meeting_ffmpeg_exe : "ffmpeg");
 }
@@ -180,6 +183,8 @@ static void help(FbMeeting *meeting) {
         "/meeting import <file path>  import audio/video into a fresh meeting\n"
         "/meeting transcribe          retry ASR on retained audio.wav\n"
         "/meeting process             clean transcript and create report\n"
+        "/meeting read notes|transcript read locally with Piper when paused/closed\n"
+        "/meeting read stop           stop reading before recording can resume\n"
         "/meeting name <number> <name> anchor a speaker; manual names take priority\n"
         "/meeting speakers            list numbers, names and their evidence\n"
         "/meeting identify            check names with the selected LLM\n"
@@ -215,6 +220,10 @@ static int start_save(FbMeeting *meeting) {
 }
 
 static int new_meeting(FbMeeting *meeting) {
+    if (meeting->read_job) {
+        snprintf(meeting->status, sizeof(meeting->status), "stop reading before changing meeting: /meeting read stop");
+        return -1;
+    }
     if (!meeting->root[0]) {
         snprintf(meeting->status, sizeof(meeting->status), "the app's local data folder is unavailable");
         return -1;
@@ -362,7 +371,10 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
             {"asr", meeting->config->meeting_asr_model},
             {"diar", meeting->config->meeting_diar_model},
             {"ffmpeg", meeting->config->meeting_ffmpeg_exe},
-            {"library", meeting->config->meeting_parakeet_library}
+            {"library", meeting->config->meeting_parakeet_library},
+            {"tts-python", meeting->config->meeting_tts_python},
+            {"tts-script", meeting->config->meeting_tts_script},
+            {"tts-model", meeting->config->meeting_tts_model}
         };
         for (size_t i = 0; i < sizeof(settings) / sizeof(settings[0]); ++i) {
             if (strcmp(key, settings[i].key) == 0 && *value && strlen(value) < 512) {
@@ -377,7 +389,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
                 return 1;
             }
         }
-        snprintf(meeting->status, sizeof(meeting->status), "usage: /meeting setup parakeet|library|asr|diar|ffmpeg <path>");
+        snprintf(meeting->status, sizeof(meeting->status), "usage: /meeting setup parakeet|library|asr|diar|ffmpeg|tts-python|tts-script|tts-model <path>");
         return -1;
     }
     if (strcmp(verb, "model") == 0) {
@@ -395,7 +407,48 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         snprintf(meeting->status, sizeof(meeting->status), "LLM: localhost:%ld / %s", port, model);
         return 1;
     }
+    if (strcmp(verb, "read") == 0) {
+        if (strcmp(arguments, "stop") == 0) {
+            if (!meeting->read_job) {
+                snprintf(meeting->status, sizeof(meeting->status), "no reading is active");
+                return -1;
+            }
+            fb_meeting_job_cancel(meeting->read_job);
+            snprintf(meeting->status, sizeof(meeting->status), "stopping Piper playback; recording remains paused until it stops");
+            return 0;
+        }
+        if (strcmp(arguments, "notes") != 0 && strcmp(arguments, "transcript") != 0) {
+            snprintf(meeting->status, sizeof(meeting->status), "usage: /meeting read notes|transcript|stop");
+            return -1;
+        }
+        if (meeting->capture || (!meeting->paused && !meeting->recording_finished) || meeting->read_job) {
+            snprintf(meeting->status, sizeof(meeting->status), "pause or finish recording and wait for current reading before reading text");
+            return -1;
+        }
+        if (!meeting->tools.tts_python[0] || !meeting->tools.tts_script[0] || !meeting->tools.tts_model[0]) {
+            snprintf(meeting->status, sizeof(meeting->status), "prepare local Piper with scripts/prepare-meeting-tts.ps1 and restart the Meeting launcher");
+            return -1;
+        }
+        char *transcript = strcmp(arguments, "transcript") == 0
+            ? fb_meeting_document_speech(meeting->document) : NULL;
+        const char *text = strcmp(arguments, "notes") == 0 ? meeting->notes.text : transcript;
+        if (!text || strspn(text, " \t\r\n") == strlen(text)) {
+            free(transcript);
+            snprintf(meeting->status, sizeof(meeting->status), "there is no text to read in the selected notes/transcript");
+            return -1;
+        }
+        meeting->read_job = fb_meeting_job_start(FB_MEETING_JOB_READ, &meeting->tools,
+            meeting->directory, NULL, text, NULL, 0, NULL);
+        free(transcript);
+        snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->read_job
+            ? "Piper reading requested; recording stays paused" : "could not start reading");
+        return meeting->read_job ? 0 : -1;
+    }
     if (strcmp(verb, "record") == 0 && !*arguments) {
+        if (meeting->read_job) {
+            snprintf(meeting->status, sizeof(meeting->status), "reading is active; wait or use /meeting read stop before recording");
+            return -1;
+        }
         if (!meeting->directory[0] && new_meeting(meeting) != 0) {
             return -1;
         }
@@ -606,7 +659,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return 0;
     }
     if (strcmp(verb, "open") == 0 && *path) {
-        if (meeting->capture || meeting->job || meeting->asr_job || meeting->save_job || meeting->document_dirty ||
+        if (meeting->capture || meeting->job || meeting->asr_job || meeting->save_job || meeting->read_job || meeting->document_dirty ||
             meeting->notes.revision != meeting->saved_revision) {
             snprintf(meeting->status, sizeof(meeting->status), "save notes and finish current jobs before opening another meeting");
             return -1;
@@ -679,6 +732,16 @@ int fb_meeting_handle_event(FbMeeting *meeting, const FbEvent *event) {
 }
 
 void fb_meeting_tick(FbMeeting *meeting) {
+    if (meeting->read_job) {
+        FbMeetingJobStatus reading;
+        fb_meeting_job_poll(meeting->read_job, &reading);
+        if (reading.state != FB_MEETING_JOB_RUNNING) {
+            fb_meeting_job_free(meeting->read_job);
+            meeting->read_job = NULL;
+            snprintf(meeting->status, sizeof(meeting->status), "%s",
+                reading.state == FB_MEETING_JOB_CANCELLED ? "reading stopped; recording can resume" : reading.message);
+        }
+    }
     if (meeting->devices_job) {
         FbAudioDeviceStatus status;
         fb_audio_devices_poll(meeting->devices_job, &status);
@@ -849,6 +912,9 @@ void fb_meeting_tick(FbMeeting *meeting) {
             }
             cJSON_Delete(document);
             if (done && meeting->operation == FB_MEETING_JOB_OPEN) {
+                meeting->recording_finished = 1;
+                meeting->paused = 0;
+                meeting->asr_live = 0;
                 char *notes = fb_meeting_job_take_notes(meeting->job);
                 fb_notepad_set(&meeting->notes, notes ? notes : "");
                 free(notes);
@@ -920,7 +986,9 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
     fb_draw_text(1, layout.statusbar.y, meeting->status, 190, 195, 205,
                  FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     char state[256];
-    if (meeting->capture) {
+    if (meeting->read_job) {
+        snprintf(state, sizeof(state), "READING | /meeting read stop interrupts | recording unavailable until playback ends");
+    } else if (meeting->capture) {
         if (meeting->capture_status.state == FB_CAPTURE_STARTING) {
             snprintf(state, sizeof(state), "OPENING AUDIO | Ctrl+Space cancels startup | F6 closes | F8 commands");
         } else {
@@ -950,6 +1018,11 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
 }
 
 void fb_meeting_shutdown(FbMeeting *meeting) {
+    if (meeting->read_job) {
+        fb_meeting_job_cancel(meeting->read_job);
+        fb_meeting_job_free(meeting->read_job);
+        meeting->read_job = NULL;
+    }
     fb_audio_devices_free(meeting->devices_job);
     if (meeting->capture) {
         fb_system_capture_free(meeting->capture);

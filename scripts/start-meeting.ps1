@@ -8,6 +8,8 @@ param(
     [string]$MeetingFolder,
     [string]$Microphone,
     [string]$OutputDevice,
+    [string]$TtsAssetsDirectory = (Join-Path $env:LOCALAPPDATA 'FrancoBoccaleDiBirra\external\tts'),
+    [string]$TtsModel,
     [switch]$PrintCommand
 )
 
@@ -30,6 +32,15 @@ if (($LlmPort -gt 0) -ne [bool]$LlmModel) {
     throw 'Provide both -LlmPort and -LlmModel, or select a loaded model from inside Meeting.'
 }
 $launchArguments = @('--meeting', '--parakeet', $parakeet, '--library', $library, '--asr', $asr, '--diar', $diar, '--ffmpeg', $FFmpeg)
+$ttsPython = Join-Path $TtsAssetsDirectory 'venv\Scripts\pythonw.exe'
+if (!$TtsModel) {
+    $TtsModel = Join-Path $TtsAssetsDirectory 'it_IT-paola-medium.onnx'
+}
+if ((Test-Path -LiteralPath $ttsPython -PathType Leaf) -and (Test-Path -LiteralPath $TtsModel -PathType Leaf)) {
+    $ttsScript = Join-Path $PSScriptRoot 'meeting_read.py'
+    $launchArguments += @('--tts-python', [System.IO.Path]::GetFullPath($ttsPython),
+        '--tts-script', [System.IO.Path]::GetFullPath($ttsScript), '--tts-model', [System.IO.Path]::GetFullPath($TtsModel))
+}
 if ($MeetingFolder) {
     $launchArguments += @('--meeting-folder', $MeetingFolder)
 }

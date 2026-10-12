@@ -9,6 +9,9 @@ typedef struct {
     char diar_model[512];
     char ffmpeg_exe[512];
     char parakeet_library[512];
+    char tts_python[512];
+    char tts_script[512];
+    char tts_model[512];
 } FbMeetingConfig;
 
 typedef enum {
@@ -18,7 +21,8 @@ typedef enum {
     FB_MEETING_JOB_OPEN,
     FB_MEETING_JOB_LIVE,
     FB_MEETING_JOB_TRANSCRIBE_PREVIEW,
-    FB_MEETING_JOB_IDENTIFY
+    FB_MEETING_JOB_IDENTIFY,
+    FB_MEETING_JOB_READ
 } FbMeetingOperation;
 
 typedef enum {

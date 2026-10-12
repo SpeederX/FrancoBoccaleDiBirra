@@ -21,6 +21,7 @@ typedef struct {
     cJSON *document;
     FbMeetingJob *job;
     FbMeetingJob *asr_job;
+    FbMeetingJob *read_job;
     unsigned long long asr_revision;
     int asr_live;
     int paused;

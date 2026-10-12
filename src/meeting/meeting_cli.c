@@ -42,7 +42,10 @@ int fb_meeting_launch_config(int argc, char **argv, FbConfig *config) {
             {"--llm-model", config->meeting_llm_model, sizeof(config->meeting_llm_model)},
             {"--meeting-folder", config->meeting_folder, sizeof(config->meeting_folder)},
             {"--microphone", config->meeting_microphone, sizeof(config->meeting_microphone)},
-            {"--output-device", config->meeting_output_device, sizeof(config->meeting_output_device)}
+            {"--output-device", config->meeting_output_device, sizeof(config->meeting_output_device)},
+            {"--tts-python", config->meeting_tts_python, sizeof(config->meeting_tts_python)},
+            {"--tts-script", config->meeting_tts_script, sizeof(config->meeting_tts_script)},
+            {"--tts-model", config->meeting_tts_model, sizeof(config->meeting_tts_model)}
         };
         int found = 0;
         for (size_t n = 0; n < sizeof(settings) / sizeof(settings[0]); ++n) {
