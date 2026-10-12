@@ -406,7 +406,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         if (meeting->capture || meeting->devices_job || meeting->recording_finished ||
             (meeting->asr_job && !meeting->asr_live) ||
             (meeting->job && meeting->operation == FB_MEETING_JOB_OPEN) ||
-            (exists && (!meeting->asr_job || !meeting->asr_live))) {
+            (exists && !meeting->asr_live)) {
             snprintf(meeting->status, sizeof(meeting->status), "resume a paused live meeting; imported/finalized audio needs a new meeting");
             return -1;
         }
@@ -416,10 +416,8 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         }
         meeting->capture = fb_system_capture_start_devices(audio, meeting->source, exists,
             meeting->config->meeting_output_device, meeting->config->meeting_microphone);
-        if (meeting->capture && !meeting->asr_job && start_job(meeting, FB_MEETING_JOB_LIVE, NULL) != 0) {
-            fb_system_capture_free(meeting->capture);
-            meeting->capture = NULL;
-            return -1;
+        if (meeting->capture) {
+            meeting->asr_live = 1;
         }
         meeting->paused = 0;
         snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->capture
@@ -436,7 +434,7 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         return 0;
     }
     if (strcmp(verb, "finish") == 0 && !*arguments) {
-        if (!meeting->asr_job || !meeting->asr_live || meeting->finish_pending) {
+        if (!meeting->asr_live || meeting->finish_pending) {
             snprintf(meeting->status, sizeof(meeting->status), "no open live meeting to finish; /meeting process updates a closed meeting");
             return -1;
         }
@@ -445,7 +443,9 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
         if (meeting->capture) {
             fb_system_capture_stop(meeting->capture);
         } else {
-            fb_meeting_job_audio_boundary(meeting->asr_job, 1);
+            if (meeting->asr_job) {
+                fb_meeting_job_audio_boundary(meeting->asr_job, 1);
+            }
             meeting->recording_finished = 1;
             meeting->paused = 0;
         }
@@ -549,20 +549,23 @@ int fb_meeting_command(FbMeeting *meeting, const char *command) {
     if (strcmp(verb, "save") == 0 && !*arguments) {
         return start_save(meeting);
     }
-    if (strcmp(verb, "cancel") == 0 && !*arguments && (meeting->job || meeting->asr_job)) {
+    if (strcmp(verb, "cancel") == 0 && !*arguments && (meeting->job || meeting->asr_job || meeting->capture)) {
         meeting->process_pending = 0;
         if (meeting->job) {
             fb_meeting_job_cancel(meeting->job);
         }
-        if (meeting->asr_job) {
-            if (meeting->asr_live) {
-                meeting->finish_pending = 1;
-                meeting->recording_finished = 1;
-                meeting->paused = 0;
-                if (meeting->capture) {
-                    fb_system_capture_stop(meeting->capture);
-                }
+        if (meeting->asr_live) {
+            meeting->finish_pending = 1;
+            meeting->recording_finished = 1;
+            meeting->paused = 0;
+            if (meeting->capture) {
+                fb_system_capture_stop(meeting->capture);
             }
+            if (!meeting->asr_job) {
+                meeting->asr_live = 0;
+            }
+        }
+        if (meeting->asr_job) {
             fb_meeting_job_cancel(meeting->asr_job);
         }
         snprintf(meeting->status, sizeof(meeting->status), "cancelling; any current LLM request must return before the job ends");
@@ -728,16 +731,35 @@ void fb_meeting_tick(FbMeeting *meeting) {
     }
     if (meeting->capture) {
         fb_system_capture_poll(meeting->capture, &meeting->capture_status);
+        if (meeting->capture_status.state == FB_CAPTURE_STARTING && meeting->capture_status.stage[0]) {
+            snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->capture_status.stage);
+        }
+        if (meeting->capture_status.state == FB_CAPTURE_RECORDING && meeting->asr_live && !meeting->asr_job) {
+            if (start_job(meeting, FB_MEETING_JOB_LIVE, NULL) != 0) {
+                meeting->asr_live = 0;
+                meeting->finish_pending = 1;
+                meeting->process_pending = 0;
+                fb_system_capture_stop(meeting->capture);
+            }
+        }
         if (meeting->capture_status.state == FB_CAPTURE_DONE || meeting->capture_status.state == FB_CAPTURE_ERROR) {
             int success = meeting->capture_status.state == FB_CAPTURE_DONE;
             fb_system_capture_free(meeting->capture);
             meeting->capture = NULL;
             meeting->paused = !meeting->finish_pending;
             meeting->recording_finished = meeting->finish_pending;
+            if (success && meeting->capture_status.frames && meeting->asr_live && !meeting->asr_job) {
+                if (start_job(meeting, FB_MEETING_JOB_LIVE, NULL) != 0) {
+                    meeting->asr_live = 0;
+                    meeting->process_pending = 0;
+                    return;
+                }
+            }
             if (meeting->asr_job) {
-                fb_meeting_job_audio_boundary(meeting->asr_job, meeting->finish_pending);
+                fb_meeting_job_audio_boundary(meeting->asr_job, meeting->finish_pending || !success);
             }
             if (!success) {
+                meeting->asr_live = 0;
                 meeting->process_pending = 0;
                 snprintf(meeting->status, sizeof(meeting->status), "%s", meeting->capture_status.error);
             } else {
@@ -780,6 +802,7 @@ void fb_meeting_tick(FbMeeting *meeting) {
                 ? "meeting job cancelled; retained files and notes remain available" : status.message);
             fb_meeting_job_free(meeting->asr_job);
             meeting->asr_job = NULL;
+            meeting->asr_live = 0;
         } else if (!meeting->job && !meeting->paused && status.message[0]) {
             snprintf(meeting->status, sizeof(meeting->status), "%s", status.message);
         }
@@ -898,8 +921,12 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
                  FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     char state[256];
     if (meeting->capture) {
-        snprintf(state, sizeof(state), "REC %.1fs | Ctrl+Space pauses | F6 finishes | %s",
-                 (double)meeting->capture_status.frames / 16000.0, meeting->capture_status.device_name);
+        if (meeting->capture_status.state == FB_CAPTURE_STARTING) {
+            snprintf(state, sizeof(state), "OPENING AUDIO | Ctrl+Space cancels startup | F6 closes | F8 commands");
+        } else {
+            snprintf(state, sizeof(state), "REC %.1fs | Ctrl+Space pauses | F6 finishes | %s",
+                     (double)meeting->capture_status.frames / 16000.0, meeting->capture_status.device_name);
+        }
     } else if (meeting->paused && meeting->asr_job) {
         snprintf(state, sizeof(state), "PAUSED | Ctrl+Space resumes | F6 closes and creates report | F8 commands | F9 outputs");
     } else if (meeting->recording_finished) {

@@ -163,8 +163,166 @@ static void begin_fixture_live(FbApp *app, const char *library) {
     app->meeting.command_focus = 0;
 }
 
+static int capture_smoke(int argc, char **argv) {
+    assert(argc == 6);
+    assert(fb_ensure_dir("capture-smoke-state") == 0);
+#ifdef _WIN32
+    assert(_putenv_s("LOCALAPPDATA", "capture-smoke-state") == 0);
+#endif
+    FbApp *app = calloc(1, sizeof(*app));
+    assert(app);
+    fb_app_init_mode(app, 120, 36, FB_INPUT_MODE_MEETING);
+    snprintf(app->meeting.tools.parakeet_library, 512, "%s", argv[2]);
+    snprintf(app->meeting.tools.asr_model, 512, "%s", argv[3]);
+    snprintf(app->meeting.tools.diar_model, 512, "%s", argv[4]);
+    snprintf(app->config.meeting_microphone, 256, "%s", argv[5]);
+    assert(fb_meeting_command(&app->meeting, "record") == 0);
+    unsigned long long deadline = fb_now_ms() + 20000;
+    unsigned long long next_log = 0;
+    while (app->meeting.capture_status.frames < 8000) {
+        fb_app_tick(app);
+        if (fb_now_ms() >= next_log) {
+            FbMeetingJobStatus status = {0};
+            if (app->meeting.asr_job) {
+                fb_meeting_job_poll(app->meeting.asr_job, &status);
+            }
+            fprintf(stderr, "capture state=%d frames=%llu; ASR %s; UI %s\n",
+                    app->meeting.capture_status.state, app->meeting.capture_status.frames,
+                    status.message, app->meeting.status);
+            fflush(stderr);
+            next_log = fb_now_ms() + 1000;
+        }
+        assert(app->meeting.capture && fb_now_ms() < deadline);
+        fb_sleep_ms(10);
+    }
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    deadline = fb_now_ms() + 15000;
+    while (app->meeting.capture) {
+        fb_app_tick(app);
+        assert(fb_now_ms() < deadline);
+        fb_sleep_ms(10);
+    }
+    assert(app->meeting.paused);
+    unsigned long long recorded = app->meeting.capture_status.frames;
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    deadline = fb_now_ms() + 15000;
+    while (app->meeting.capture_status.frames <= recorded) {
+        fb_app_tick(app);
+        assert(app->meeting.capture && fb_now_ms() < deadline);
+        fb_sleep_ms(10);
+    }
+    key(app, FB_KEY_F6, 0);
+    deadline = fb_now_ms() + 30000;
+    while (app->meeting.capture || app->meeting.asr_job || app->meeting.process_pending) {
+        fb_app_tick(app);
+        assert(fb_now_ms() < deadline);
+        fb_sleep_ms(10);
+    }
+    assert(app->meeting.recording_finished && !app->meeting.paused);
+    fprintf(stderr, "capture/pause/resume/F6 complete; frames=%llu; %s\n",
+            app->meeting.capture_status.frames, app->meeting.status);
+    fb_app_shutdown(app);
+    free(app);
+    return 0;
+}
+
+#ifdef FB_TEST_CAPTURE_FIXTURE
+void fb_capture_fixture_ready(FbSystemCapture *capture, int fail);
+
+static int capture_startup_test(const char *library) {
+    assert(fb_ensure_dir("capture-startup-state") == 0);
+#ifdef _WIN32
+    assert(_putenv_s("LOCALAPPDATA", "capture-startup-state") == 0);
+#endif
+    FbApp *app = calloc(1, sizeof(*app));
+    assert(app);
+    fb_app_init_mode(app, 120, 36, FB_INPUT_MODE_MEETING);
+    snprintf(app->meeting.tools.parakeet_library, 512, "%s", library);
+    snprintf(app->meeting.tools.asr_model, 512, "fixture");
+    snprintf(app->meeting.tools.diar_model, 512, "fixture");
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(app->meeting.capture && !app->meeting.asr_job);
+    fb_app_tick(app);
+    assert(!app->meeting.asr_job);
+    key(app, FB_KEY_F6, 0);
+    assert(app->meeting.finish_pending);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished && !app->meeting.capture && !app->meeting.asr_job);
+
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    assert(fb_meeting_command(&app->meeting, "record") == 0);
+    fb_capture_fixture_ready(app->meeting.capture, 1);
+    fb_app_tick(app);
+    assert(!app->meeting.capture && !app->meeting.asr_job && !app->meeting.process_pending);
+    assert(strstr(app->meeting.status, "device open failure"));
+
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    assert(app->meeting.paused && !app->meeting.capture && !app->meeting.asr_job);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(app->meeting.capture && !app->meeting.asr_job);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    assert(app->meeting.asr_job);
+    assert(fb_meeting_command(&app->meeting, "finish") == 0);
+    fb_app_tick(app);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished);
+
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(fb_meeting_command(&app->meeting, "cancel") == 0);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished && !app->meeting.asr_job);
+
+    assert(fb_meeting_command(&app->meeting, "new") == 0);
+    idle(&app->meeting);
+    assert(fb_meeting_command(&app->meeting, "record") == 0);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    assert(app->meeting.asr_job && app->meeting.capture_status.frames == 8000);
+    FbMeetingJob *session = app->meeting.asr_job;
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    fb_app_tick(app);
+    assert(app->meeting.paused && app->meeting.asr_job == session);
+    key(app, FB_KEY_CTRL_SPACE, 0);
+    assert(app->meeting.capture && app->meeting.asr_job == session);
+    fb_capture_fixture_ready(app->meeting.capture, 0);
+    fb_app_tick(app);
+    assert(app->meeting.capture_status.frames == 16000);
+    key(app, FB_KEY_F6, 0);
+    fb_app_tick(app);
+    idle(&app->meeting);
+    assert(app->meeting.recording_finished && !app->meeting.paused);
+    fb_app_shutdown(app);
+    free(app);
+    return 0;
+}
+#endif
+
 int main(int argc, char **argv) {
     fb_sock_platform_init();
+#ifdef FB_TEST_CAPTURE_FIXTURE
+    assert(argc == 2);
+    int result = capture_startup_test(argv[1]);
+    fb_sock_platform_cleanup();
+    return result;
+#else
+    if (argc > 1 && strcmp(argv[1], "--capture-smoke") == 0) {
+        int result = capture_smoke(argc, argv);
+        fb_sock_platform_cleanup();
+        return result;
+    }
 #ifdef _WIN32
     if (argc == 2 && strcmp(argv[1], "--startup") == 0) {
         assert(fb_ensure_dir("test-startup-state") == 0);
@@ -385,7 +543,13 @@ int main(int argc, char **argv) {
         snprintf(app->meeting.tools.diar_model, 512, "%s", argv[4]);
         assert(app->meeting.source == FB_CAPTURE_BOTH);
         key(app, FB_KEY_CTRL_SPACE, 0);
-        assert(app->meeting.capture && app->meeting.asr_job);
+        assert(app->meeting.capture && !app->meeting.asr_job);
+        unsigned long long opening_deadline = fb_now_ms() + 15000;
+        while (!app->meeting.asr_job) {
+            fb_meeting_tick(&app->meeting);
+            assert(app->meeting.capture && fb_now_ms() < opening_deadline);
+            fb_sleep_ms(10);
+        }
         FbMeetingJob *session = app->meeting.asr_job;
         char recording_directory[600];
         snprintf(recording_directory, sizeof(recording_directory), "%s", app->meeting.directory);
@@ -451,4 +615,5 @@ int main(int argc, char **argv) {
     free(app);
     fb_sock_platform_cleanup();
     return 0;
+#endif
 }

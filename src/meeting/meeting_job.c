@@ -155,6 +155,7 @@ static int stream_transcribe(FbMeetingJob *job, const char *audio) {
         message(job, error);
         return -1;
     }
+    message(job, "Parakeet models ready; waiting for recorded audio");
     int live = job->operation == FB_MEETING_JOB_LIVE;
     FbPcmReader reader = {0};
     while (fb_pcm_reader_open(&reader, audio, live) != 0) {
@@ -238,6 +239,9 @@ static int stream_transcribe(FbMeetingJob *job, const char *audio) {
             }
             message(job, "Parakeet session ready; waiting for the next audio block or resume");
         } else if (got == 0) {
+            if (used == 0) {
+                message(job, "Parakeet ready; waiting for the next audio block or resume");
+            }
             fb_sleep_ms(20);
         }
     }

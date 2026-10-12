@@ -23,6 +23,7 @@ typedef struct {
     unsigned long long frames;
     unsigned long long dropped_frames;
     char device_name[256];
+    char stage[128];
     char error[256];
 } FbCaptureStatus;
 

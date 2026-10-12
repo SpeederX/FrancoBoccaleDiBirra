@@ -37,6 +37,13 @@ and the report; it receives text, not audio. Qwen is not required for ASR.
    transcription appears on the right in audio blocks of at most 20 seconds.
    Press Ctrl+Space to pause, then again to resume the **same meeting and speaker
    session**. F8 switches between notes and commands.
+   While devices initialize, the UI shows `OPENING AUDIO` and the current audio
+   stage rather than `REC 0`. Parakeet starts after capture is ready; the WAV is
+   already being written while its models load. Ctrl+Space can pause startup and
+   F6 can close it, including before the first audio frame. Device initialization
+   can take several seconds; stopping waits for the current Windows audio call
+   to return. After models load, the ASR status distinguishes waiting for audio
+   from transcription.
    The transcript follows new text automatically. PgUp pauses that follow while
    you read earlier lines; PgDn back to the bottom resumes it. Resizing rewraps
    the text and adjusts the visible rows while retaining your reading position.

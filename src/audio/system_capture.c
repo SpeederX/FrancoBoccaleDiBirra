@@ -42,6 +42,12 @@ static int stop_requested(FbSystemCapture *capture) {
     return result;
 }
 
+static void opening_stage(FbSystemCapture *capture, const char *stage) {
+    fb_mutex_lock(capture->mutex);
+    snprintf(capture->status.stage, sizeof(capture->status.stage), "%s", stage);
+    fb_mutex_unlock(capture->mutex);
+}
+
 static void capture_callback(ma_device *device, void *output, const void *input,
                              ma_uint32 frames) {
     (void)output;
@@ -124,11 +130,15 @@ static void capture_worker(void *arg) {
     int wav_ready = 0;
     const char *error = NULL;
 
+    opening_stage(capture, "Audio: initializing Windows capture");
     if (ma_context_init(NULL, 0, NULL, &context) != MA_SUCCESS) {
         error = "could not initialize system audio";
         goto done;
     }
     context_ready = 1;
+    if (stop_requested(capture)) {
+        goto done;
+    }
     if ((capture->source & FB_CAPTURE_SYSTEM) && !ma_context_is_loopback_supported(&context)) {
         error = "system-output capture needs the Windows WASAPI backend; import audio here";
         goto done;
@@ -136,6 +146,9 @@ static void capture_worker(void *arg) {
     for (int i = 0; i < 2; ++i) {
         if (!(capture->source & (1 << i))) {
             continue;
+        }
+        if (stop_requested(capture)) {
+            goto done;
         }
         if (ma_pcm_rb_init(ma_format_f32, 1, FB_SYSTEM_BUFFER_FRAMES, NULL, NULL,
                           &capture->audio[i]) != MA_SUCCESS) {
@@ -151,6 +164,7 @@ static void capture_worker(void *arg) {
         config.pUserData = &capture->inputs[i];
         ma_device_id id;
         char name[256];
+        opening_stage(capture, i == 0 ? "Audio: resolving system output" : "Audio: resolving microphone");
         if (fb_audio_device_resolve(&context, (FbCaptureSource)(1 << i), capture->device_names[i],
                                     &id, name, sizeof(name)) != 0) {
             error = i == 0 ? "selected output device unavailable; use /meeting output or /meeting sources"
@@ -158,13 +172,18 @@ static void capture_worker(void *arg) {
             goto done;
         }
         config.capture.pDeviceID = name[0] ? &id : NULL;
+        opening_stage(capture, i == 0 ? "Audio: opening system output" : "Audio: opening microphone");
         if (ma_device_init(&context, &config, &devices[i]) != MA_SUCCESS) {
             error = i == 0 ? "could not open selected system output" : "could not open selected microphone";
             goto done;
         }
         device_ready[i] = 1;
     }
+    if (stop_requested(capture)) {
+        goto done;
+    }
     if (capture->source & FB_CAPTURE_SYSTEM) {
+        opening_stage(capture, "Audio: starting the system output clock");
         ma_device_config config = ma_device_config_init(ma_device_type_playback);
         config.playback.pDeviceID = &devices[0].capture.id;
         config.playback.format = ma_format_f32;
@@ -180,12 +199,16 @@ static void capture_worker(void *arg) {
             goto done;
         }
     }
+    if (stop_requested(capture)) {
+        goto done;
+    }
     fb_mutex_lock(capture->mutex);
     snprintf(capture->status.device_name, sizeof(capture->status.device_name), "%s%s%s",
         device_ready[0] ? devices[0].capture.name : "",
         capture->source == FB_CAPTURE_BOTH ? " + mic: " : "",
         device_ready[1] ? devices[1].capture.name : "");
     fb_mutex_unlock(capture->mutex);
+    opening_stage(capture, "Audio: opening the recording file");
     int opened = capture->resume ? fb_wav_stream_resume(&wav, capture->path)
                                 : fb_wav_stream_open(&wav, capture->path, FB_SYSTEM_SAMPLE_RATE);
     if (opened != 0) {
@@ -194,12 +217,14 @@ static void capture_worker(void *arg) {
     }
     wav_ready = 1;
     for (int i = 0; i < 2; ++i) {
+        opening_stage(capture, "Audio: starting the selected sources");
         if (device_ready[i] && ma_device_start(&devices[i]) != MA_SUCCESS) {
             error = "could not start the selected audio source";
             goto done;
         }
     }
     fb_mutex_lock(capture->mutex);
+    snprintf(capture->status.stage, sizeof(capture->status.stage), "Audio: recording");
     capture->status.state = capture->stop_requested ? FB_CAPTURE_STOPPING : FB_CAPTURE_RECORDING;
     fb_mutex_unlock(capture->mutex);
     while (!stop_requested(capture)) {
