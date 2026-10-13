@@ -958,6 +958,34 @@ void fb_meeting_tick(FbMeeting *meeting) {
     }
 }
 
+static int render_meeting_art(FbRect area) {
+    static const char *people_at_table[] = {
+        "          o       o",
+        "         /|\\     /|\\",
+        "    o   .-----------.   o",
+        "   /|\\ /   MEETING   \\ /|\\",
+        "   / \\ '-------------' / \\",
+        "         _|_     _|_"
+    };
+    int rows = (int)(sizeof(people_at_table) / sizeof(people_at_table[0]));
+    int width = 0;
+    for (int i = 0; i < rows; ++i) {
+        int line_width = (int)strlen(people_at_table[i]);
+        if (line_width > width) {
+            width = line_width;
+        }
+    }
+    if (area.w < width + 2 || area.h < rows * 2 + 2) {
+        return 0;
+    }
+    int x = area.x + (area.w - width) / 2;
+    for (int i = 0; i < rows; ++i) {
+        fb_draw_text(x, area.y + i, people_at_table[i], 130, 205, 185,
+            FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
+    }
+    return rows + 1;
+}
+
 void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *command) {
     fb_draw_text(1, layout.header.y, "Meeting | local audio, notes and outputs", 130, 205, 185,
                  FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
@@ -972,6 +1000,9 @@ void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *com
         reflow_output(meeting);
     }
     clamp_output_scroll(meeting);
+    int art_height = render_meeting_art(left);
+    left.y += art_height;
+    left.h -= art_height;
     fb_draw_text(left.x + 1, left.y, meeting->command_focus ? "Notes | F8 to edit" : "Notes | editing; autosave",
                  130, 205, 185, FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     const char *label = meeting->output_kind == 0 ? "Original ASR | F9 next" :

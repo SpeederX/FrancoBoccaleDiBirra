@@ -81,6 +81,61 @@ static void save_screen(const char *path) {
     fclose(screen);
 }
 
+static int screen_row_contains(int row, int first, int count, const char *text) {
+    char line[121];
+    assert(count <= 120);
+    for (int i = 0; i < count; ++i) {
+        line[i] = cells[row][first + i].ch ? (char)cells[row][first + i].ch : ' ';
+    }
+    line[count] = '\0';
+    return strstr(line, text) != NULL;
+}
+
+static void render_art_screen(FbMeeting *meeting, FbCmdline *commands, int width, int height) {
+    screen_width = width;
+    screen_height = height;
+    FbLayout layout;
+    fb_layout_compute(width, height, &layout);
+    fb_screen_clear();
+    fb_meeting_render(meeting, layout, commands);
+}
+
+static void test_meeting_art(void) {
+    FbConfig config = {0};
+    FbMeeting *meeting = calloc(1, sizeof(*meeting));
+    assert(meeting);
+    FbCmdline commands;
+    fb_cmdline_init(&commands);
+    fb_meeting_init(meeting, &config);
+    fb_notepad_set(&meeting->notes, "Notes at the table.\nSecond line.");
+    size_t revision = meeting->notes.revision;
+    size_t cursor = meeting->notes.cursor;
+    render_art_screen(meeting, &commands, 120, 36);
+    assert(screen_row_contains(4, 0, 60, "MEETING"));
+    assert(screen_row_contains(8, 0, 60, "Notes | editing"));
+    assert(screen_row_contains(9, 0, 60, "Notes at the table."));
+    assert(screen_row_contains(1, 61, 59, "Original ASR"));
+    assert(!screen_row_contains(4, 61, 59, "MEETING"));
+    save_screen("meeting-ui-art.json");
+
+    render_art_screen(meeting, &commands, 50, 20);
+    assert(screen_row_contains(1, 0, 25, "Notes"));
+    assert(screen_row_contains(2, 0, 25, "Notes at the table."));
+    assert(!screen_row_contains(4, 0, 25, "MEETING"));
+    save_screen("meeting-ui-art-small.json");
+    render_art_screen(meeting, &commands, 120, 14);
+    assert(screen_row_contains(1, 0, 60, "Notes"));
+    assert(screen_row_contains(2, 0, 60, "Notes at the table."));
+    assert(!screen_row_contains(4, 0, 60, "MEETING"));
+    render_art_screen(meeting, &commands, 120, 36);
+    assert(screen_row_contains(4, 0, 60, "MEETING"));
+    assert(screen_row_contains(9, 0, 60, "Notes at the table."));
+    assert(meeting->notes.revision == revision && meeting->notes.cursor == cursor);
+    assert(strcmp(meeting->notes.text, "Notes at the table.\nSecond line.") == 0);
+    fb_meeting_shutdown(meeting);
+    free(meeting);
+}
+
 static void test_transcript_viewport(FbApp *app) {
     app->meeting.llm_port = 0;
     size_t notes_revision = app->meeting.notes.revision;
@@ -725,6 +780,7 @@ int main(int argc, char **argv) {
             app->meeting.capture_status.frames, app->meeting.capture_status.dropped_frames,
             cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(app->meeting.document, "utterances")));
     }
+    test_meeting_art();
     test_transcript_viewport(app);
     key(app, FB_KEY_F8, 0);
     fb_screen_clear();
