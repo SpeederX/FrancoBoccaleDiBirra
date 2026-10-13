@@ -17,6 +17,8 @@ add_executable(meeting_tool_fixture meeting_tool_fixture.c)
 add_library(meeting_parakeet_fixture SHARED meeting_parakeet_fixture.c)
 if (MSVC)
     target_compile_options(meeting_parakeet_fixture PRIVATE /openmp)
+    # The distributed Parakeet DLL uses the release OpenMP runtime in either app configuration.
+    set_property(TARGET meeting_parakeet_fixture PROPERTY MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 endif()
 target_include_directories(meeting_parakeet_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(meeting_tool_fixture PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -36,6 +38,8 @@ if (Python3_FOUND)
     add_test(NAME meeting_read COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/test_meeting_read.py)
 endif()
+fb_add_test(check_failure)
+set_tests_properties(check_failure PROPERTIES WILL_FAIL TRUE)
 
 fb_add_test(ring_buffer ${CMAKE_SOURCE_DIR}/src/audio/ring_buffer.c)
 fb_add_test(wav_writer ${CMAKE_SOURCE_DIR}/src/audio/wav_writer.c)

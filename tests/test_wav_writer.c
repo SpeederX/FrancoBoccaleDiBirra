@@ -1,4 +1,4 @@
-#include <assert.h>
+#include "test_check.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,43 +27,43 @@ int main(void) {
         samples[i] = sinf((float)i * 0.2f);
     }
 
-    assert(fb_wav_write_file(path, samples, count, sample_rate) == 0);
+    FB_CHECK(fb_wav_write_file(path, samples, count, sample_rate) == 0);
 
     FILE *f = fopen(path, "rb");
-    assert(f != NULL);
+    FB_CHECK(f != NULL);
 
     char riff[4], wave[4], fmt[4], data[4];
     fread(riff, 1, 4, f);
-    assert(riff[0] == 'R' && riff[1] == 'I' && riff[2] == 'F' && riff[3] == 'F');
+    FB_CHECK(riff[0] == 'R' && riff[1] == 'I' && riff[2] == 'F' && riff[3] == 'F');
     uint32_t chunk_size = read_u32le(f);
     fread(wave, 1, 4, f);
-    assert(wave[0] == 'W' && wave[1] == 'A' && wave[2] == 'V' && wave[3] == 'E');
+    FB_CHECK(wave[0] == 'W' && wave[1] == 'A' && wave[2] == 'V' && wave[3] == 'E');
 
     fread(fmt, 1, 4, f);
-    assert(fmt[0] == 'f' && fmt[1] == 'm' && fmt[2] == 't' && fmt[3] == ' ');
+    FB_CHECK(fmt[0] == 'f' && fmt[1] == 'm' && fmt[2] == 't' && fmt[3] == ' ');
     uint32_t fmt_size = read_u32le(f);
-    assert(fmt_size == 16);
+    FB_CHECK(fmt_size == 16);
     uint16_t audio_format = read_u16le(f);
-    assert(audio_format == 1); /* PCM */
+    FB_CHECK(audio_format == 1); /* PCM */
     uint16_t num_channels = read_u16le(f);
-    assert(num_channels == 1);
+    FB_CHECK(num_channels == 1);
     uint32_t rate = read_u32le(f);
-    assert(rate == (uint32_t)sample_rate);
+    FB_CHECK(rate == (uint32_t)sample_rate);
     read_u32le(f); /* byte rate, not re-checked */
     read_u16le(f); /* block align, not re-checked */
     uint16_t bits_per_sample = read_u16le(f);
-    assert(bits_per_sample == 16);
+    FB_CHECK(bits_per_sample == 16);
 
     fread(data, 1, 4, f);
-    assert(data[0] == 'd' && data[1] == 'a' && data[2] == 't' && data[3] == 'a');
+    FB_CHECK(data[0] == 'd' && data[1] == 'a' && data[2] == 't' && data[3] == 'a');
     uint32_t data_bytes = read_u32le(f);
-    assert(data_bytes == count * sizeof(int16_t));
-    assert(chunk_size == 36 + data_bytes);
+    FB_CHECK(data_bytes == count * sizeof(int16_t));
+    FB_CHECK(chunk_size == 36 + data_bytes);
 
     for (size_t i = 0; i < count; ++i) {
         int16_t v = (int16_t)read_u16le(f);
         float back = (float)v / 32767.0f;
-        assert(fabsf(back - samples[i]) < 0.001f); /* int16 quantization tolerance */
+        FB_CHECK(fabsf(back - samples[i]) < 0.001f); /* int16 quantization tolerance */
     }
 
     fclose(f);

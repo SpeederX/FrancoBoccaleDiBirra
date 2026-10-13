@@ -14,3 +14,4 @@ meetings/
 /tests/local/meeting-asr/
 /docs/*.m4a
 /docs/*_ref.txt
+node_modules/
