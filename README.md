@@ -1,5 +1,9 @@
 # FrancoBoccaleDiBirra
 
+<p align="center">
+  <img src="franco_boccale_di_birra_logo.png" alt="FrancoBoccaleDiBirra logo" width="360">
+</p>
+
 A minimal terminal console for managing local LLM backends (llama.cpp today,
 vLLM/SGLang planned), with mic transcription, direct-URL GGUF downloads, and
 a small structured-output "intent brain" for natural-language commands.
