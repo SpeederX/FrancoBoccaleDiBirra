@@ -76,6 +76,7 @@ add_executable(fbdb
     src/diary/diary_job.c
     src/diary/diary.c
     src/knowledge/knowledge.c
+    src/project/project.c
     src/util/fileutil.c
     src/util/utf8.c
 )

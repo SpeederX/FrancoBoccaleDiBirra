@@ -871,6 +871,8 @@ int main(int argc, char **argv) {
     assert(app->meeting.output_width == 59);
     save_screen("meeting-ui.json");
     key(app, FB_KEY_TAB, 0);
+    assert(app->input_mode == FB_INPUT_MODE_PROJECT);
+    key(app, FB_KEY_TAB, 0);
     assert(app->input_mode == FB_INPUT_MODE_COMMAND);
     fb_meeting_shutdown(&app->meeting);
     free(app);

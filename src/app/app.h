@@ -8,6 +8,7 @@
 #include "diary/diary.h"
 #include "download/download_job.h"
 #include "knowledge/knowledge.h"
+#include "project/project.h"
 #include "transcribe/transcribe.h"
 #include "tui/screen.h"
 #include "tui/widget_cmdline.h"
@@ -22,12 +23,19 @@ typedef enum {
     FB_VIEW_LOGS
 } FbAppView;
 
-/* Project remains a separate, not yet selectable feature on main. */
+/* Five input modes; PROJECT is currently an empty box (see project.h) --
+   selectable and visually distinct (its own color/effect/mode tag) but
+   with no actual feature behind it yet. Built out on its own worktree/
+   branch (feature/project-mode) specifically so that work never touches
+   diary/*, chat/*, or app/sweep.c, and concurrent diary/memory work never
+   touches project/* -- the two can proceed in parallel without either
+   side's changes landing on the same lines. */
 typedef enum {
     FB_INPUT_MODE_COMMAND = 0, /* free text -> Qwen intent classify -> a command */
     FB_INPUT_MODE_SCRATCHPAD,  /* free text -> sent directly to the loaded model, bounded memory */
     FB_INPUT_MODE_DIARY,       /* free text -> loaded model, plus fed into diary/diary.h's memory pipeline */
-    FB_INPUT_MODE_MEETING
+    FB_INPUT_MODE_MEETING,
+    FB_INPUT_MODE_PROJECT      /* empty box -- see project/project.h */
 } FbInputMode;
 
 #define FB_WAVE_HISTORY 256
@@ -92,6 +100,8 @@ typedef struct {
 
     int knowledge_available; /* an embedding model is configured (see config.h) */
     FbKnowledge knowledge;
+    FbProject project;        /* empty box -- see project/project.h */
+    FbTextView project_view;  /* placeholder panel, set once at init */
 } FbApp;
 
 /* Shifts the wave history left and appends one new amplitude sample [0,1]. */

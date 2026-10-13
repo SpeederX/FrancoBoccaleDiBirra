@@ -40,6 +40,12 @@
 #define FB_COLOR_DIARY_G 0x6a
 #define FB_COLOR_DIARY_B 0xe8
 
+/* Fourth mode color (structural green), for project mode -- distinct from
+   the three above. */
+#define FB_COLOR_PROJECT_R 0x4a
+#define FB_COLOR_PROJECT_G 0xd8
+#define FB_COLOR_PROJECT_B 0x7a
+
 /* ASCII luminance ramp, dark to bright, for shaded effects (sphere, etc). */
 #define FB_SHADE_RAMP " .:-=+*#%@"
 

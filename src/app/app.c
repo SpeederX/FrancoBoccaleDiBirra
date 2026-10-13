@@ -97,6 +97,12 @@ void fb_app_init_mode(FbApp *app, int width, int height, FbInputMode mode) {
     }
     fb_knowledge_init(&app->knowledge, app->data_dir,
                        app->knowledge_available ? fb_resolve_embedding_port(&app->config) : 0);
+    fb_project_init(&app->project);
+    fb_textview_add_line(&app->project_view, "Project mode is an empty box right now.");
+    fb_textview_add_line(&app->project_view, "");
+    fb_textview_add_line(&app->project_view,
+                          "Folder-scoped project context -- not implemented yet. See "
+                          "src/project/project.h and the repo's backlog.");
 }
 
 /* The history panel's own rect -- shared by history_append (to know the
@@ -462,6 +468,7 @@ static FbTextView *current_panel_view(FbApp *app) {
         return app->diary.browse_index >= 0 ? &app->diary_browse_view : &app->diary_live_view;
     }
     if (app->input_mode == FB_INPUT_MODE_SCRATCHPAD) return &app->scratchpad_history_view;
+    if (app->input_mode == FB_INPUT_MODE_PROJECT) return &app->project_view;
     return &app->history_view;
 }
 
@@ -628,6 +635,7 @@ void fb_app_shutdown(FbApp *app) {
     fb_chat_shutdown(&app->chat_job); /* joins any in-flight request before app is freed */
     fb_chat_shutdown(&app->diary_chat_job);
     fb_diary_shutdown(&app->diary);
+    fb_project_shutdown(&app->project);
     fb_backend_mgr_shutdown(&app->backend_mgr);
     fb_mic_shutdown();
 }
@@ -1052,7 +1060,8 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                 app->input_mode = (app->input_mode == FB_INPUT_MODE_COMMAND) ? FB_INPUT_MODE_SCRATCHPAD
                                    : (app->input_mode == FB_INPUT_MODE_SCRATCHPAD) ? FB_INPUT_MODE_DIARY
                                    : (app->input_mode == FB_INPUT_MODE_DIARY) ? FB_INPUT_MODE_MEETING
-                                                                           : FB_INPUT_MODE_COMMAND;
+                                   : (app->input_mode == FB_INPUT_MODE_MEETING) ? FB_INPUT_MODE_PROJECT
+                                                                             : FB_INPUT_MODE_COMMAND;
                 /* Scratchpad is meant to be a clean slate each time you
                    step into it, not a memory that quietly survives being
                    tabbed away from and back -- diary is the opposite by
@@ -1067,6 +1076,8 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                                              ? "diary -- free text goes to the loaded model and is remembered"
                                          : app->input_mode == FB_INPUT_MODE_MEETING
                                              ? "meeting -- type notes; F8 for commands and setup"
+                                         : app->input_mode == FB_INPUT_MODE_PROJECT
+                                             ? "project -- not yet implemented"
                                              : "command -- free text goes through Qwen intent classify";
                 snprintf(app->last_submitted, FB_CMDLINE_MAX, "mode: %s", mode_desc);
             }
@@ -1280,12 +1291,15 @@ void fb_app_render(FbApp *app) {
        available for the header too, not just the bottom of the screen. */
     uint8_t mode_r = app->input_mode == FB_INPUT_MODE_SCRATCHPAD ? FB_COLOR_WARM_R
                      : app->input_mode == FB_INPUT_MODE_DIARY    ? FB_COLOR_DIARY_R
+                     : app->input_mode == FB_INPUT_MODE_PROJECT  ? FB_COLOR_PROJECT_R
                                                                   : FB_COLOR_ACCENT_R;
     uint8_t mode_g = app->input_mode == FB_INPUT_MODE_SCRATCHPAD ? FB_COLOR_WARM_G
                      : app->input_mode == FB_INPUT_MODE_DIARY    ? FB_COLOR_DIARY_G
+                     : app->input_mode == FB_INPUT_MODE_PROJECT  ? FB_COLOR_PROJECT_G
                                                                   : FB_COLOR_ACCENT_G;
     uint8_t mode_b = app->input_mode == FB_INPUT_MODE_SCRATCHPAD ? FB_COLOR_WARM_B
                      : app->input_mode == FB_INPUT_MODE_DIARY    ? FB_COLOR_DIARY_B
+                     : app->input_mode == FB_INPUT_MODE_PROJECT  ? FB_COLOR_PROJECT_B
                                                                   : FB_COLOR_ACCENT_B;
 
     fb_fill_rect(layout.header, FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
@@ -1384,13 +1398,13 @@ void fb_app_render(FbApp *app) {
 
             /* The centerpiece effect is mode-specific: command keeps the
                original sphere, scratchpad gets the pencil, diary gets the
-               hypercube. Project (tetris) is built and ready in
-               fx_tetris.c but has no mode to attach to yet -- see
-               FbInputMode's comment in app.h. */
+               hypercube, project gets the tetris build-up. */
             if (app->input_mode == FB_INPUT_MODE_SCRATCHPAD) {
                 fb_fx_pencil_render(sphere_area, elapsed_ms, mode_r, mode_g, mode_b);
             } else if (app->input_mode == FB_INPUT_MODE_DIARY) {
                 fb_fx_hypercube_render(sphere_area, elapsed_ms, mode_r, mode_g, mode_b);
+            } else if (app->input_mode == FB_INPUT_MODE_PROJECT) {
+                fb_fx_tetris_render(sphere_area, elapsed_ms, mode_r, mode_g, mode_b);
             } else {
                 fb_fx_sphere_render(sphere_area, elapsed_ms, app->sphere_intensity);
             }
@@ -1419,10 +1433,13 @@ void fb_app_render(FbApp *app) {
         };
         int x = layout.hints.x + 1;
         for (size_t i = 0; i < sizeof(fkeys) / sizeof(fkeys[0]); ++i) {
-            /* /new_page is a scratchpad/diary concept (and project mode's,
-               later) -- command mode has no notion of a "page" at all, so
+            /* /new_page is a scratchpad/diary concept -- command mode has
+               no notion of a "page" at all, and project mode doesn't
+               either yet (it's an empty box, see project/project.h), so
                don't advertise a shortcut that would just tell you so. */
-            if (strcmp(fkeys[i].key, "F7") == 0 && app->input_mode == FB_INPUT_MODE_COMMAND) {
+            if (strcmp(fkeys[i].key, "F7") == 0 &&
+                (app->input_mode == FB_INPUT_MODE_COMMAND ||
+                 app->input_mode == FB_INPUT_MODE_PROJECT)) {
                 continue;
             }
             fb_draw_text(x, layout.hints.y, fkeys[i].key, mode_r, mode_g, mode_b, FB_COLOR_BG_R,
@@ -1523,6 +1540,9 @@ void fb_app_render(FbApp *app) {
                      target_name, current_page_no, app->diary.page_len, app->diary.page_close_chars,
                      app->diary.archived_count, app->diary.long_term_len, saved_suffix);
         }
+    } else if (app->input_mode == FB_INPUT_MODE_PROJECT) {
+        snprintf(top_line, sizeof(top_line), "[Tab] PROJECT");
+        snprintf(bottom_line, sizeof(bottom_line), "not yet implemented");
     } else {
         snprintf(top_line, sizeof(top_line), "[Tab] COMMAND");
     }
