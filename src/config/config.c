@@ -12,6 +12,29 @@ static void build_path(char *out, size_t cap, const char *data_dir) {
     snprintf(out, cap, "%s/config.json", data_dir);
 }
 
+/* Persisted as a name, not a raw enum integer -- config.json is meant to
+   be hand-edited (see the README), and a name survives an enum reorder
+   where a stored integer wouldn't. Unrecognized/missing reads back as
+   llama.cpp (0), matching FbBackendKind's own legacy-default reasoning. */
+static const char *backend_kind_name(FbBackendKind kind) {
+    switch (kind) {
+    case FB_BACKEND_SILIANG: return "siliang";
+    case FB_BACKEND_VLLM: return "vllm";
+    case FB_BACKEND_SGLANG: return "sglang";
+    case FB_BACKEND_LLAMA_CPP:
+    default: return "llama_cpp";
+    }
+}
+
+static FbBackendKind backend_kind_from_name(const char *name) {
+    if (name) {
+        if (strcmp(name, "siliang") == 0) return FB_BACKEND_SILIANG;
+        if (strcmp(name, "vllm") == 0) return FB_BACKEND_VLLM;
+        if (strcmp(name, "sglang") == 0) return FB_BACKEND_SGLANG;
+    }
+    return FB_BACKEND_LLAMA_CPP;
+}
+
 int fb_config_load(FbConfig *cfg, const char *data_dir) {
     memset(cfg, 0, sizeof(*cfg));
     strncpy(cfg->lang_pref, "en", sizeof(cfg->lang_pref) - 1);
@@ -38,6 +61,9 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
 
     struct { const char *key; char *dst; size_t cap; } str_fields[] = {
         {"llama_server_path", cfg->llama_server_path, sizeof(cfg->llama_server_path)},
+        {"siliang_exe", cfg->siliang_exe, sizeof(cfg->siliang_exe)},
+        {"vllm_exe", cfg->vllm_exe, sizeof(cfg->vllm_exe)},
+        {"sglang_python", cfg->sglang_python, sizeof(cfg->sglang_python)},
         {"sherpa_exe", cfg->sherpa_exe, sizeof(cfg->sherpa_exe)},
         {"orukeet_dir", cfg->orukeet_dir, sizeof(cfg->orukeet_dir)},
         {"qwen_model", cfg->qwen_model, sizeof(cfg->qwen_model)},
@@ -86,12 +112,46 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         cJSON_ArrayForEach(item, models) {
             if (cfg->model_count >= FB_CONFIG_MAX_MODELS) break;
             cJSON *name = cJSON_GetObjectItemCaseSensitive(item, "name");
-            cJSON *model_path = cJSON_GetObjectItemCaseSensitive(item, "path");
-            if (!cJSON_IsString(name) || !cJSON_IsString(model_path)) continue;
+            if (!cJSON_IsString(name)) continue;
 
-            FbConfigModel *m = &cfg->models[cfg->model_count++];
+            FbConfigModel *m = &cfg->models[cfg->model_count];
+            memset(m, 0, sizeof(*m));
             strncpy(m->name, name->valuestring, sizeof(m->name) - 1);
-            strncpy(m->path, model_path->valuestring, sizeof(m->path) - 1);
+
+            cJSON *bindings = cJSON_GetObjectItemCaseSensitive(item, "bindings");
+            if (cJSON_IsArray(bindings)) {
+                cJSON *b;
+                cJSON_ArrayForEach(b, bindings) {
+                    if (m->binding_count >= FB_CONFIG_MAX_BINDINGS) break;
+                    cJSON *bpath = cJSON_GetObjectItemCaseSensitive(b, "path");
+                    if (!cJSON_IsString(bpath)) continue;
+
+                    FbModelBinding *bind = &m->bindings[m->binding_count++];
+                    memset(bind, 0, sizeof(*bind));
+                    strncpy(bind->path, bpath->valuestring, sizeof(bind->path) - 1);
+                    cJSON *bkind = cJSON_GetObjectItemCaseSensitive(b, "kind");
+                    bind->kind = backend_kind_from_name(cJSON_IsString(bkind) ? bkind->valuestring : NULL);
+                    cJSON *bextra = cJSON_GetObjectItemCaseSensitive(b, "extra_args");
+                    if (cJSON_IsString(bextra)) {
+                        strncpy(bind->extra_args, bextra->valuestring, sizeof(bind->extra_args) - 1);
+                    }
+                }
+            } else {
+                /* Pre-multi-binding config.json: a flat {"name","path","kind"}
+                   entry. Read back as that one binding, not discarded. */
+                cJSON *model_path = cJSON_GetObjectItemCaseSensitive(item, "path");
+                if (cJSON_IsString(model_path)) {
+                    FbModelBinding *bind = &m->bindings[0];
+                    memset(bind, 0, sizeof(*bind));
+                    strncpy(bind->path, model_path->valuestring, sizeof(bind->path) - 1);
+                    cJSON *kind = cJSON_GetObjectItemCaseSensitive(item, "kind");
+                    bind->kind = backend_kind_from_name(cJSON_IsString(kind) ? kind->valuestring : NULL);
+                    m->binding_count = 1;
+                }
+            }
+            if (m->binding_count > 0) {
+                cfg->model_count++;
+            }
         }
     }
 
@@ -107,6 +167,9 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "last_browse_dir", cfg->last_browse_dir);
     cJSON_AddStringToObject(root, "lang_pref", cfg->lang_pref);
     cJSON_AddStringToObject(root, "llama_server_path", cfg->llama_server_path);
+    cJSON_AddStringToObject(root, "siliang_exe", cfg->siliang_exe);
+    cJSON_AddStringToObject(root, "vllm_exe", cfg->vllm_exe);
+    cJSON_AddStringToObject(root, "sglang_python", cfg->sglang_python);
     cJSON_AddStringToObject(root, "sherpa_exe", cfg->sherpa_exe);
     cJSON_AddStringToObject(root, "orukeet_dir", cfg->orukeet_dir);
     cJSON_AddStringToObject(root, "qwen_model", cfg->qwen_model);
@@ -135,7 +198,15 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     for (int i = 0; i < cfg->model_count; ++i) {
         cJSON *item = cJSON_CreateObject();
         cJSON_AddStringToObject(item, "name", cfg->models[i].name);
-        cJSON_AddStringToObject(item, "path", cfg->models[i].path);
+        cJSON *bindings = cJSON_AddArrayToObject(item, "bindings");
+        for (int j = 0; j < cfg->models[i].binding_count; ++j) {
+            const FbModelBinding *b = &cfg->models[i].bindings[j];
+            cJSON *bind_item = cJSON_CreateObject();
+            cJSON_AddStringToObject(bind_item, "kind", backend_kind_name(b->kind));
+            cJSON_AddStringToObject(bind_item, "path", b->path);
+            cJSON_AddStringToObject(bind_item, "extra_args", b->extra_args);
+            cJSON_AddItemToArray(bindings, bind_item);
+        }
         cJSON_AddItemToArray(models, item);
     }
 
@@ -154,34 +225,62 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     return 0;
 }
 
-int fb_config_find_model(const FbConfig *cfg, const char *name, char *out_path, size_t out_cap) {
+FbConfigModel *fb_config_find_model(FbConfig *cfg, const char *name) {
     for (int i = 0; i < cfg->model_count; ++i) {
-        if (strcmp(cfg->models[i].name, name) == 0) {
-            snprintf(out_path, out_cap, "%s", cfg->models[i].path);
-            return 1;
-        }
+        if (strcmp(cfg->models[i].name, name) == 0) return &cfg->models[i];
     }
+    return NULL;
+}
+
+FbModelBinding *fb_config_find_binding(FbConfigModel *model, FbBackendKind kind) {
+    if (!model) return NULL;
+    for (int i = 0; i < model->binding_count; ++i) {
+        if (model->bindings[i].kind == kind) return &model->bindings[i];
+    }
+    return NULL;
+}
+
+int fb_config_add_binding(FbConfig *cfg, const char *name, FbBackendKind kind, const char *path,
+                           const char *extra_args) {
+    FbConfigModel *m = fb_config_find_model(cfg, name);
+    if (!m) {
+        if (cfg->model_count >= FB_CONFIG_MAX_MODELS) return -1;
+        m = &cfg->models[cfg->model_count++];
+        memset(m, 0, sizeof(*m));
+        strncpy(m->name, name, sizeof(m->name) - 1);
+    }
+
+    FbModelBinding *b = fb_config_find_binding(m, kind);
+    if (!b) {
+        if (m->binding_count >= FB_CONFIG_MAX_BINDINGS) return -1;
+        b = &m->bindings[m->binding_count++];
+        memset(b, 0, sizeof(*b));
+        b->kind = kind;
+    }
+    strncpy(b->path, path, sizeof(b->path) - 1);
+    b->path[sizeof(b->path) - 1] = '\0';
+    snprintf(b->extra_args, sizeof(b->extra_args), "%s", extra_args ? extra_args : "");
     return 0;
 }
 
-int fb_config_add_model(FbConfig *cfg, const char *name, const char *path) {
-    for (int i = 0; i < cfg->model_count; ++i) {
-        if (strcmp(cfg->models[i].name, name) == 0) {
-            strncpy(cfg->models[i].path, path, sizeof(cfg->models[i].path) - 1);
-            return 0;
-        }
-    }
-    if (cfg->model_count >= FB_CONFIG_MAX_MODELS) return -1;
-
-    FbConfigModel *m = &cfg->models[cfg->model_count++];
-    strncpy(m->name, name, sizeof(m->name) - 1);
-    strncpy(m->path, path, sizeof(m->path) - 1);
-    return 0;
-}
-
-int fb_config_remove_model(FbConfig *cfg, const char *name) {
+int fb_config_remove_model(FbConfig *cfg, const char *name, const FbBackendKind *kind_ptr) {
     for (int i = 0; i < cfg->model_count; ++i) {
         if (strcmp(cfg->models[i].name, name) != 0) continue;
+
+        FbConfigModel *m = &cfg->models[i];
+        if (kind_ptr) {
+            int found = 0;
+            for (int j = 0; j < m->binding_count; ++j) {
+                if (m->bindings[j].kind != *kind_ptr) continue;
+                for (int k = j; k < m->binding_count - 1; ++k) m->bindings[k] = m->bindings[k + 1];
+                m->binding_count--;
+                found = 1;
+                break;
+            }
+            if (!found) return -1;
+            if (m->binding_count > 0) return 0; /* other bindings remain -- keep the model entry */
+        }
+
         for (int j = i; j < cfg->model_count - 1; ++j) cfg->models[j] = cfg->models[j + 1];
         cfg->model_count--;
         return 0;
@@ -192,6 +291,24 @@ int fb_config_remove_model(FbConfig *cfg, const char *name) {
 int fb_resolve_llama_server(const FbConfig *cfg, char *out_path, size_t out_cap) {
     const char *src =
         cfg->llama_server_path[0] != '\0' ? cfg->llama_server_path : FB_LLAMA_SERVER_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_siliang_exe(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *src = cfg->siliang_exe[0] != '\0' ? cfg->siliang_exe : FB_SILIANG_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_vllm_exe(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *src = cfg->vllm_exe[0] != '\0' ? cfg->vllm_exe : FB_VLLM_DEFAULT_NAME;
+    snprintf(out_path, out_cap, "%s", src);
+    return 0;
+}
+
+int fb_resolve_sglang_python(const FbConfig *cfg, char *out_path, size_t out_cap) {
+    const char *src = cfg->sglang_python[0] != '\0' ? cfg->sglang_python : FB_SGLANG_PYTHON_DEFAULT_NAME;
     snprintf(out_path, out_cap, "%s", src);
     return 0;
 }

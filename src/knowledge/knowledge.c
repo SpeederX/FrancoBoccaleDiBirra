@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "cJSON.h"
-#include "net/llama_client.h"
+#include "net/openai_client.h"
 #include "util/fileutil.h"
 #include "util/paths.h"
 

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "app/app.h"
+#include "app/command_dispatch.h"
 #include "audio/wav_stream.h"
 #include "audio/mic_capture.h"
 #include "meeting/meeting_document.h"
@@ -138,6 +139,74 @@ static void test_transcript_viewport(FbApp *app) {
     assert(app->meeting.notes.revision == notes_revision);
 }
 
+static void test_integrated_backends(void) {
+    assert(fb_ensure_dir("test-backend-state") == 0);
+    assert(fb_write_file_atomic("test-backend-state/config.json",
+        "{\"models\":[{\"name\":\"legacy\",\"path\":\"C:/models/legacy.gguf\"},"
+        "{\"name\":\"invalid\",\"path\":42}]}") == 0);
+    FbConfig *config = calloc(1, sizeof(*config));
+    FbConfig *restored = calloc(1, sizeof(*restored));
+    assert(config && restored);
+    assert(fb_config_load(config, "test-backend-state") == 0);
+    assert(config->model_count == 1);
+    FbConfigModel *model = fb_config_find_model(config, "legacy");
+    assert(model && model->binding_count == 1);
+    assert(fb_config_find_binding(model, FB_BACKEND_LLAMA_CPP));
+    assert(!fb_config_find_binding(model, FB_BACKEND_VLLM));
+    assert(fb_config_add_binding(config, "legacy", FB_BACKEND_SILIANG,
+        "C:/models/legacy.gguf", "--ctx-size 4096") == 0);
+    assert(fb_config_save(config, "test-backend-state") == 0);
+    assert(fb_config_load(restored, "test-backend-state") == 0);
+    model = fb_config_find_model(restored, "legacy");
+    assert(model && model->binding_count == 2);
+    assert(strcmp(fb_config_find_binding(model, FB_BACKEND_SILIANG)->extra_args, "--ctx-size 4096") == 0);
+    FbBackendKind kind = FB_BACKEND_SILIANG;
+    assert(fb_config_remove_model(restored, "missing", NULL) == -1);
+    assert(fb_config_remove_model(restored, "legacy", &kind) == 0);
+    assert(fb_config_find_model(restored, "legacy")->binding_count == 1);
+
+    FbCommand command = fb_command_parse("/add model C:/model files/model.gguf");
+    assert(command.kind == FB_CMD_ADD && strcmp(command.arg2, "C:/model files/model.gguf") == 0);
+    command = fb_command_parse("/add model \"C:/model files/model.gguf\" siliang --ctx-size 4096");
+    assert(strcmp(command.arg2, "C:/model files/model.gguf") == 0);
+    assert(strcmp(command.arg3, "siliang") == 0 && strcmp(command.arg4, "--ctx-size 4096") == 0);
+    command = fb_command_parse("/add model \"unclosed path");
+    assert(!command.arg2[0]);
+    command = fb_command_parse("/load model siliang");
+    assert(strcmp(command.arg1, "model") == 0 && strcmp(command.arg2, "siliang") == 0);
+    command = fb_command_parse("/ingest notes.txt event summary");
+    assert(command.kind == FB_CMD_INGEST && strcmp(command.arg2, "event") == 0 &&
+        strcmp(command.arg3, "summary") == 0);
+    command = fb_command_parse("/recall a query with spaces");
+    assert(command.kind == FB_CMD_RECALL && strcmp(command.arg1, "a query with spaces") == 0);
+
+    FbApp *selection = calloc(1, sizeof(*selection));
+    assert(selection);
+    selection->input_mode = FB_INPUT_MODE_MEETING;
+    fb_cmdline_init(&selection->cmdline);
+    fb_meeting_init(&selection->meeting, &selection->config);
+    selection->meeting.command_focus = 1;
+    selection->backend_mgr.count = 1;
+    snprintf(selection->backend_mgr.items[0].name, FB_BACKEND_NAME_MAX, "%s", FB_EMBEDDING_BRAIN_NAME);
+    selection->backend_mgr.items[0].state = FB_BACKEND_UP;
+    selection->backend_mgr.items[0].port = 19000;
+    type(selection, "/meeting process");
+    key(selection, FB_KEY_ENTER, 0);
+    assert(selection->meeting.llm_port == 0);
+    selection->backend_mgr.items[1] = selection->backend_mgr.items[0];
+    snprintf(selection->backend_mgr.items[0].name, FB_BACKEND_NAME_MAX, "chat-model");
+    selection->backend_mgr.items[0].port = 19001;
+    selection->backend_mgr.count = 2;
+    type(selection, "/meeting process");
+    key(selection, FB_KEY_ENTER, 0);
+    assert(selection->meeting.llm_port == 19001);
+    assert(strcmp(selection->meeting.llm_model, "chat-model") == 0);
+    fb_meeting_shutdown(&selection->meeting);
+    free(selection);
+    free(config);
+    free(restored);
+}
+
 static void test_integrated_knowledge(int port) {
     assert(fb_ensure_dir("test-knowledge-state") == 0);
     FbKnowledge *knowledge = calloc(1, sizeof(*knowledge));
@@ -168,26 +237,27 @@ static void test_integrated_knowledge(int port) {
     assert(strstr(knowledge->chunks[knowledge->chunk_count - 1].text, "FULL_CHUNK_TAIL"));
     assert(fb_write_file_atomic("test-knowledge-state/dialogue-summary.txt", "Summary of the dialogue.") == 0);
     assert(fb_knowledge_ingest_file(knowledge, "test-knowledge-state/dialogue-summary.txt", "dialogue", 1) == 1);
-    FbConfig config = {0};
-    snprintf(config.embedding_model, sizeof(config.embedding_model), "test-knowledge-state/dialogue-summary.txt");
-    config.embedding_port = 18090;
-    snprintf(config.meeting_folder, sizeof(config.meeting_folder), "local-meetings");
-    snprintf(config.meeting_tts_model, sizeof(config.meeting_tts_model), "local-voice.onnx");
-    assert(fb_config_save(&config, "test-knowledge-state") == 0);
-    FbConfig restored;
-    assert(fb_config_load(&restored, "test-knowledge-state") == 0);
-    assert(strcmp(restored.embedding_model, config.embedding_model) == 0);
-    assert(restored.embedding_port == config.embedding_port);
-    assert(strcmp(restored.meeting_folder, config.meeting_folder) == 0);
-    assert(strcmp(restored.meeting_tts_model, config.meeting_tts_model) == 0);
+    FbConfig *config = calloc(1, sizeof(*config));
+    FbConfig *restored = calloc(1, sizeof(*restored));
+    assert(config && restored);
+    snprintf(config->embedding_model, sizeof(config->embedding_model), "test-knowledge-state/dialogue-summary.txt");
+    config->embedding_port = 18090;
+    snprintf(config->meeting_folder, sizeof(config->meeting_folder), "local-meetings");
+    snprintf(config->meeting_tts_model, sizeof(config->meeting_tts_model), "local-voice.onnx");
+    assert(fb_config_save(config, "test-knowledge-state") == 0);
+    assert(fb_config_load(restored, "test-knowledge-state") == 0);
+    assert(strcmp(restored->embedding_model, config->embedding_model) == 0);
+    assert(restored->embedding_port == config->embedding_port);
+    assert(strcmp(restored->meeting_folder, config->meeting_folder) == 0);
+    assert(strcmp(restored->meeting_tts_model, config->meeting_tts_model) == 0);
 #ifdef _WIN32
     assert(_putenv_s("FB_EMBEDDING_MODEL", "missing-env-model.gguf") == 0);
     assert(_putenv_s("FB_EMBEDDING_PORT", "19000") == 0);
 #endif
     char resolved[512];
-    assert(fb_resolve_embedding_model(&restored, resolved, sizeof(resolved)) == 0);
-    assert(strcmp(resolved, restored.embedding_model) == 0);
-    assert(fb_resolve_embedding_port(&restored) == restored.embedding_port);
+    assert(fb_resolve_embedding_model(restored, resolved, sizeof(resolved)) == 0);
+    assert(strcmp(resolved, restored->embedding_model) == 0);
+    assert(fb_resolve_embedding_port(restored) == restored->embedding_port);
 #ifdef _WIN32
     assert(_putenv_s("FB_EMBEDDING_MODEL", "") == 0);
     assert(_putenv_s("FB_EMBEDDING_PORT", "") == 0);
@@ -198,6 +268,8 @@ static void test_integrated_knowledge(int port) {
     assert(match.is_summary && strstr(match.text, "Summary"));
     assert(fb_knowledge_search(knowledge, "dialogue", &match, 1) == 1);
     assert(strcmp(match.group, "dialogue") == 0);
+    free(config);
+    free(restored);
     free(knowledge);
 }
 
@@ -351,7 +423,8 @@ static int reading_test(const char *python, const char *script, const char *libr
         fb_sleep_ms(5);
     }
     char *snapshot = fb_read_file(observed, NULL);
-    assert(snapshot && strcmp(snapshot, app->meeting.notes.text) == 0);
+    assert(snapshot);
+    assert(strcmp(snapshot, app->meeting.notes.text) == 0);
     free(snapshot);
     type(app, " Notes remain editable while reading.");
     fb_screen_clear();
@@ -493,6 +566,7 @@ static int capture_startup_test(const char *library) {
 
 int main(int argc, char **argv) {
     fb_sock_platform_init();
+    test_integrated_backends();
 #ifdef FB_TEST_CAPTURE_FIXTURE
     if (argc == 5 && strcmp(argv[1], "--tts") == 0) {
         int result = reading_test(argv[2], argv[3], argv[4]);

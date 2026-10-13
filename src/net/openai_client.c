@@ -1,4 +1,4 @@
-#include "net/llama_client.h"
+#include "net/openai_client.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +6,7 @@
 #include "cJSON.h"
 #include "net/http_client.h"
 
-int fb_llama_health(int port, int timeout_ms) {
+int fb_backend_health(int port, int timeout_ms) {
     FbHttpResponse resp;
     if (fb_http_request(port, "GET", "/health", NULL, NULL, 0, timeout_ms, &resp) != 0) {
         return 0;

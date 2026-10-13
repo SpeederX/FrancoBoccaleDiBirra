@@ -3,11 +3,35 @@
 
 #include <stddef.h>
 
-#define FB_CONFIG_MAX_MODELS 64
+#include "backend/backend_types.h"
 
+#define FB_CONFIG_MAX_MODELS 64
+#define FB_CONFIG_MAX_BINDINGS 4 /* one per FbBackendKind value */
+
+/* One engine's way of running a given model: which kind, where the
+   model/weights are (a .gguf file for llama.cpp/Siliang; a local
+   directory or bare Hugging Face repo id for vLLM/SGLang), and optional
+   extra CLI flags appended at spawn time (customizing a model's own
+   launch config -- e.g. --n-gpu-layers, --ctx-size, --tensor-parallel-
+   size -- previously only possible by hand-editing a hardcoded array in
+   app.c for the Qwen brain specifically). Free-form, whitespace-split, no
+   quoting support -- a flag value containing a space isn't representable
+   yet. */
+typedef struct {
+    FbBackendKind kind;
+    char path[512];
+    char extra_args[256];
+} FbModelBinding;
+
+/* One logical model, one name, one-to-FB_CONFIG_MAX_BINDINGS ways to run
+   it. A GGUF that's also valid input for llama.cpp AND Siliang (both
+   consume the same file format) genuinely can have two bindings under
+   one name; vLLM and SGLang bindings would need their own HF-format
+   path, since a .gguf path isn't valid input for either in general. */
 typedef struct {
     char name[128];
-    char path[512];
+    FbModelBinding bindings[FB_CONFIG_MAX_BINDINGS];
+    int binding_count;
 } FbConfigModel;
 
 typedef struct {
@@ -20,6 +44,9 @@ typedef struct {
        of truth for every path/port below (see each fb_resolve_* function).
        Empty means "not set here". */
     char llama_server_path[512];
+    char siliang_exe[512];   /* SpeederX's llama.cpp fork -- same CLI shape as llama-server */
+    char vllm_exe[512];      /* vLLM's own `vllm serve` CLI, Linux/CUDA-first */
+    char sglang_python[512]; /* python interpreter to run `-m sglang.launch_server` with */
     char sherpa_exe[512];
     char orukeet_dir[512];
     char qwen_model[512];
@@ -57,15 +84,31 @@ int fb_config_load(FbConfig *cfg, const char *data_dir);
 
 int fb_config_save(const FbConfig *cfg, const char *data_dir);
 
-/* Returns 1 and copies the path if `name` is registered, else 0. */
-int fb_config_find_model(const FbConfig *cfg, const char *name, char *out_path, size_t out_cap);
+/* Returns a live pointer into cfg->models[] for `name`, or NULL --
+   mirrors fb_backend_mgr_find's same live-pointer-into-the-array shape.
+   Callers read .bindings[]/.binding_count directly (see /list, /load's
+   ambiguity check) rather than through a proliferation of single-field
+   getters. */
+FbConfigModel *fb_config_find_model(FbConfig *cfg, const char *name);
 
-/* Adds a new entry, or updates the path if `name` already exists. Returns
-   0 on success, -1 if the registry is full. */
-int fb_config_add_model(FbConfig *cfg, const char *name, const char *path);
+/* Finds `kind`'s binding on an already-resolved model, or NULL if it
+   isn't registered for that kind. */
+FbModelBinding *fb_config_find_binding(FbConfigModel *model, FbBackendKind kind);
 
-/* Returns 0 on success, -1 if `name` wasn't registered. */
-int fb_config_remove_model(FbConfig *cfg, const char *name);
+/* Adds a (kind, path, extra_args) binding under `name`, creating the
+   model entry if `name` isn't registered yet, or updating the existing
+   binding's path/extra_args if `name` already has one for `kind`.
+   extra_args may be NULL (equivalent to ""). Returns 0 on success, -1 if
+   the model registry is full (new name) or that model already has
+   FB_CONFIG_MAX_BINDINGS bindings (new kind on an existing name). */
+int fb_config_add_binding(FbConfig *cfg, const char *name, FbBackendKind kind, const char *path,
+                           const char *extra_args);
+
+/* kind_ptr non-NULL removes just that one binding (the model entry itself
+   is removed too if that was its last binding); kind_ptr NULL removes
+   the whole model, every binding. Returns 0 on success, -1 if `name` (or
+   that specific binding) wasn't registered. */
+int fb_config_remove_model(FbConfig *cfg, const char *name, const FbBackendKind *kind_ptr);
 
 /* Resolves the llama-server binary. Priority: cfg->llama_server_path
    (config.json), then a bare binary name left for the OS's own PATH search
@@ -74,6 +117,26 @@ int fb_config_remove_model(FbConfig *cfg, const char *name);
    scan). Returns 0 and fills out_path; this always succeeds (the OS spawn
    call is where an unresolvable name actually surfaces as an error). */
 int fb_resolve_llama_server(const FbConfig *cfg, char *out_path, size_t out_cap);
+
+/* Same config.json -> bare-PATH-name resolution pattern as
+   fb_resolve_llama_server, for SpeederX's Siliang fork (cfg->siliang_exe /
+   FB_SILIANG_DEFAULT_NAME) -- the default name is a
+   guess (backend_types.h flags this), correct it once the real binary
+   name is known. */
+int fb_resolve_siliang_exe(const FbConfig *cfg, char *out_path, size_t out_cap);
+
+/* Same pattern, for vLLM's own CLI (cfg->vllm_exe /
+   FB_VLLM_DEFAULT_NAME -- "vllm", the `vllm serve` entry point). vLLM
+   itself is Linux/CUDA-first; resolving a path here doesn't mean it'll
+   actually run on this machine. */
+int fb_resolve_vllm_exe(const FbConfig *cfg, char *out_path, size_t out_cap);
+
+/* Same pattern, for the python interpreter SGLang's server runs under
+   (cfg->sglang_python / FB_SGLANG_PYTHON_DEFAULT_NAME)
+   -- backend_mgr.c invokes it as `<this> -m sglang.launch_server ...`,
+   there's no standalone sglang binary. Same Linux/CUDA-first caveat as
+   vLLM. */
+int fb_resolve_sglang_python(const FbConfig *cfg, char *out_path, size_t out_cap);
 
 /* Resolves sherpa-onnx-offline and the four Orukeet model files. Priority
    for each: the matching config.json field, then an auto-detected match

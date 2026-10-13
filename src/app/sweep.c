@@ -13,6 +13,22 @@
 #include "util/fileutil.h"
 #include "util/paths.h"
 
+/* Splits a free-form "extra args" string (whitespace-separated, no quote
+   support) into a NULL-terminated argv-style array of pointers *into*
+   buf, which this mutates in place (strtok-style). Same tokenizer as
+   command_dispatch.c's (not shared -- both are small, file-local
+   utilities, consistent with this codebase's existing style elsewhere). */
+static int tokenize_extra_args(char *buf, const char **out_argv, int max_argv) {
+    int argc = 0;
+    char *tok = strtok(buf, " \t");
+    while (tok && argc < max_argv - 1) {
+        out_argv[argc++] = tok;
+        tok = strtok(NULL, " \t");
+    }
+    out_argv[argc] = NULL;
+    return argc;
+}
+
 #define FB_SWEEP_MAX_MODELS FB_CONFIG_MAX_MODELS
 #define FB_SWEEP_MAX_SOURCES 256
 #define FB_SWEEP_MAX_LIVE_PAGES 64
@@ -460,8 +476,8 @@ static int build_sources(const char *source_arg, const char *data_dir, int exper
     return -1;
 }
 
-static int resolve_models(const char *models_arg, const FbConfig *cfg,
-                           char names[][FB_BACKEND_NAME_MAX], int max_models) {
+static int resolve_models(const char *models_arg, FbConfig *cfg, char names[][FB_BACKEND_NAME_MAX],
+                           int max_models) {
     int count = 0;
     if (!models_arg || strcmp(models_arg, "all") == 0) {
         for (int i = 0; i < cfg->model_count && count < max_models; ++i) {
@@ -482,8 +498,7 @@ static int resolve_models(const char *models_arg, const FbConfig *cfg,
 
         char trimmed[FB_BACKEND_NAME_MAX];
         snprintf(trimmed, sizeof(trimmed), "%s", tok);
-        char path[FB_BACKEND_PATH_MAX];
-        if (fb_config_find_model(cfg, trimmed, path, sizeof(path))) {
+        if (fb_config_find_model(cfg, trimmed)) {
             snprintf(names[count++], FB_BACKEND_NAME_MAX, "%s", trimmed);
         } else {
             fprintf(stderr, "skipping unknown model '%s' (not in config.json)\n", trimmed);
@@ -709,11 +724,30 @@ int fb_sweep_run(int argc, char **argv) {
         printf("  [%d/%d] %s: loading", m + 1, model_count, model_names[m]);
         fflush(stdout);
 
-        char model_path[FB_BACKEND_PATH_MAX];
-        int spawned =
-            fb_config_find_model(&cfg, model_names[m], model_path, sizeof(model_path)) &&
-            fb_backend_mgr_load(&mgr, model_names[m], model_path, llama_server_path, data_dir, 0,
-                                 NULL) == 0;
+        /* A model registered for more than one backend (see FbConfigModel's
+           multi-binding shape) has no way to disambiguate in this
+           non-interactive loop -- always sweeps its first-registered
+           binding. */
+        FbConfigModel *cm = fb_config_find_model(&cfg, model_names[m]);
+        FbModelBinding *bind = (cm && cm->binding_count > 0) ? &cm->bindings[0] : NULL;
+
+        char backend_exe[FB_BACKEND_PATH_MAX];
+        char extra_buf[256];
+        const char *extra_argv[32];
+        if (bind) {
+            switch (bind->kind) {
+            case FB_BACKEND_SILIANG: fb_resolve_siliang_exe(&cfg, backend_exe, sizeof(backend_exe)); break;
+            case FB_BACKEND_VLLM: fb_resolve_vllm_exe(&cfg, backend_exe, sizeof(backend_exe)); break;
+            case FB_BACKEND_SGLANG: fb_resolve_sglang_python(&cfg, backend_exe, sizeof(backend_exe)); break;
+            case FB_BACKEND_LLAMA_CPP:
+            default: snprintf(backend_exe, sizeof(backend_exe), "%s", llama_server_path); break;
+            }
+            snprintf(extra_buf, sizeof(extra_buf), "%s", bind->extra_args);
+            tokenize_extra_args(extra_buf, extra_argv, 32);
+        }
+        int spawned = bind && fb_backend_mgr_load(&mgr, model_names[m], bind->path, bind->kind,
+                                                   backend_exe, data_dir, 0,
+                                                   extra_argv[0] ? extra_argv : NULL) == 0;
         FbSweepLoadResult load_result = FB_SWEEP_LOAD_CRASHED;
         if (spawned) load_result = wait_for_up_or_error(&mgr, model_names[m], load_timeout_ms);
         int loaded = load_result == FB_SWEEP_LOAD_UP;

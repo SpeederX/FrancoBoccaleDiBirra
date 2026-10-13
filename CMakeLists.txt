@@ -67,7 +67,7 @@ add_executable(fbdb
     src/audio/system_capture.c
     src/audio/device_selection.c
     src/net/http_client.c
-    src/net/llama_client.c
+    src/net/openai_client.c
     src/backend/backend_mgr.c
     src/config/config.c
     src/transcribe/transcribe.c
@@ -104,6 +104,9 @@ if (WIN32)
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server.exe"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline.exe"
         FB_CURL_DEFAULT_NAME="curl.exe"
+        FB_SILIANG_DEFAULT_NAME="siliang-server.exe"
+        FB_VLLM_DEFAULT_NAME="vllm.exe"
+        FB_SGLANG_PYTHON_DEFAULT_NAME="python.exe"
     )
 else()
     target_sources(fbdb PRIVATE
@@ -120,6 +123,9 @@ else()
         FB_LLAMA_SERVER_DEFAULT_NAME="llama-server"
         FB_SHERPA_ONNX_DEFAULT_NAME="sherpa-onnx-offline"
         FB_CURL_DEFAULT_NAME="curl"
+        FB_SILIANG_DEFAULT_NAME="siliang-server"
+        FB_VLLM_DEFAULT_NAME="vllm"
+        FB_SGLANG_PYTHON_DEFAULT_NAME="python3"
     )
 endif()
 
