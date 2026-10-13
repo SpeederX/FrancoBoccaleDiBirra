@@ -4,8 +4,8 @@
   <img src="franco_boccale_di_birra_logo.png" alt="FrancoBoccaleDiBirra logo" width="360">
 </p>
 
-A minimal terminal console for managing local LLM backends (llama.cpp today,
-vLLM/SGLang planned), with mic transcription, direct-URL GGUF downloads, and
+A minimal terminal console for managing local LLM backends (llama.cpp, Siliang,
+vLLM and SGLang registrations), with mic transcription, direct-URL GGUF downloads, and
 a small structured-output "intent brain" for natural-language commands.
 
 ## Quickstart
@@ -81,9 +81,9 @@ executable under `meetings`, or in a folder set with `/meeting folder`. Start wi
 `scripts\prepare-meeting.ps1`, then `scripts\start-meeting.ps1`, or enter
 `/meeting` in the app. See [Meeting setup and usage](docs/MEETING.md).
 
-Tab cycles command, scratchpad, diary and meeting. Each mode has its own
+Tab cycles command, scratchpad, diary, meeting and project. Each mode has its own
 color, centerpiece and memory behavior. The shared agent service is available
-under `tools/agent-service`; the project UI integration is not implemented yet.
+under `tools/agent-service`; project remains a selectable UI scaffold.
 A line with a
 leading `/` is always a command, in every mode. What happens to free text
 (no leading `/`) depends on the mode, shown by the color of the header/`>`
@@ -131,7 +131,8 @@ stats (bottom):
   - **F7**/`/new_page` manually closes the current page and starts a fresh
     one — same safe archive-and-consolidate path as an automatic close, just
     triggered on demand. Hypercube effect.
-- **project (planned)** — a coding mode under development in a separate worktree.
+- **project (scaffold)** — a selectable placeholder with a Tetris effect and its
+  own panel. Coding workflows are still to be connected to the shared agent service.
 
 Scratchpad also has `/new_page`/F7, but since scratchpad keeps no durable
 record at all by design, it asks first: "start a new scratchpad page?

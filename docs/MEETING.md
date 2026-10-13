@@ -117,6 +117,10 @@ one recording/import; create another meeting for another source.
 
 ## Read notes or transcript with Piper
 
+The left pane shows four people around a meeting table above the editable notes.
+The transcript pane keeps its full height. The drawing is hidden on narrow or
+short windows so the notes remain usable, and returns when the window grows.
+
 Reading is explicit and local. On Windows, prepare the optional CPU voice once:
 
 ```powershell
