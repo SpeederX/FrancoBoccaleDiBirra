@@ -987,6 +987,7 @@ static int render_meeting_art(FbRect area) {
 }
 
 void fb_meeting_render(FbMeeting *meeting, FbLayout layout, const FbCmdline *command) {
+    fb_fill_rect(layout.main_area, FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     fb_draw_text(1, layout.header.y, "Meeting | local audio, notes and outputs", 130, 205, 185,
                  FB_COLOR_BG_R, FB_COLOR_BG_G, FB_COLOR_BG_B);
     FbRect left = layout.main_area;

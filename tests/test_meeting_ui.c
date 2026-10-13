@@ -13,6 +13,7 @@
 #include "util/fileutil.h"
 #include "util/paths.h"
 #include "util/utf8.h"
+#include "tui/palette.h"
 
 static FbCell cells[36][120];
 static int screen_width = 120;
@@ -116,6 +117,7 @@ static void test_meeting_art(void) {
     assert(screen_row_contains(9, 0, 60, "Notes at the table."));
     assert(screen_row_contains(1, 61, 59, "Original ASR"));
     assert(!screen_row_contains(4, 61, 59, "MEETING"));
+    assert(cells[4][1].bg_r == FB_COLOR_BG_R && cells[4][1].bg_b == FB_COLOR_BG_B);
     save_screen("meeting-ui-art.json");
 
     render_art_screen(meeting, &commands, 50, 20);
