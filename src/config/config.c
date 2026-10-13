@@ -54,6 +54,7 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
         {"meeting_tts_python", cfg->meeting_tts_python, sizeof(cfg->meeting_tts_python)},
         {"meeting_tts_script", cfg->meeting_tts_script, sizeof(cfg->meeting_tts_script)},
         {"meeting_tts_model", cfg->meeting_tts_model, sizeof(cfg->meeting_tts_model)},
+        {"embedding_model", cfg->embedding_model, sizeof(cfg->embedding_model)},
     };
     for (size_t i = 0; i < sizeof(str_fields) / sizeof(str_fields[0]); ++i) {
         cJSON *v = cJSON_GetObjectItemCaseSensitive(root, str_fields[i].key);
@@ -64,6 +65,8 @@ int fb_config_load(FbConfig *cfg, const char *data_dir) {
     }
     cJSON *qwen_port = cJSON_GetObjectItemCaseSensitive(root, "qwen_port");
     if (cJSON_IsNumber(qwen_port)) cfg->qwen_port = (int)qwen_port->valuedouble;
+    cJSON *embedding_port = cJSON_GetObjectItemCaseSensitive(root, "embedding_port");
+    if (cJSON_IsNumber(embedding_port)) cfg->embedding_port = (int)embedding_port->valuedouble;
 
     struct { const char *key; int *dst; } int_fields[] = {
         {"diary_page_close_chars", &cfg->diary_page_close_chars},
@@ -123,6 +126,8 @@ int fb_config_save(const FbConfig *cfg, const char *data_dir) {
     cJSON_AddStringToObject(root, "meeting_tts_model", cfg->meeting_tts_model);
     cJSON_AddNumberToObject(root, "meeting_capture_source", cfg->meeting_capture_source);
     cJSON_AddNumberToObject(root, "meeting_llm_port", cfg->meeting_llm_port);
+    cJSON_AddStringToObject(root, "embedding_model", cfg->embedding_model);
+    cJSON_AddNumberToObject(root, "embedding_port", cfg->embedding_port);
     cJSON_AddNumberToObject(root, "diary_page_close_chars", cfg->diary_page_close_chars);
     cJSON_AddNumberToObject(root, "diary_checkpoint_chars", cfg->diary_checkpoint_chars);
     cJSON_AddNumberToObject(root, "diary_idle_close_minutes", cfg->diary_idle_close_minutes);
@@ -310,4 +315,16 @@ int fb_resolve_qwen_model(const FbConfig *cfg, char *out_path, size_t cap) {
 int fb_resolve_qwen_port(const FbConfig *cfg) {
     if (cfg->qwen_port > 0 && cfg->qwen_port < 65536) return cfg->qwen_port;
     return FB_QWEN_DEFAULT_PORT;
+}
+
+int fb_resolve_embedding_model(const FbConfig *cfg, char *out_path, size_t cap) {
+    const char *src = cfg->embedding_model;
+    if (src[0] == '\0' || !file_exists(src)) return -1;
+    int n = snprintf(out_path, cap, "%s", src);
+    return (n < 0 || (size_t)n >= cap) ? -1 : 0;
+}
+
+int fb_resolve_embedding_port(const FbConfig *cfg) {
+    if (cfg->embedding_port > 0 && cfg->embedding_port < 65536) return cfg->embedding_port;
+    return FB_EMBEDDING_DEFAULT_PORT;
 }

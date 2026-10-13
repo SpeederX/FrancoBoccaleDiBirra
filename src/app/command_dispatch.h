@@ -13,6 +13,10 @@ typedef enum {
     FB_CMD_DOWNLOAD, /* direct GGUF URL -> local models directory + registry */
     FB_CMD_LIST,     /* /list or /models: registered models and their loaded state */
     FB_CMD_NEW_PAGE, /* diary mode only: manually close the live page and start a fresh one */
+    FB_CMD_INGEST,   /* /ingest <path> [group] [summary]: chunk+embed a file into the
+                        knowledge/knowledge.h store, linked to `group` (auto-derived from
+                        the filename if omitted) */
+    FB_CMD_RECALL,   /* /recall <query>: manual top-K retrieval test against that store */
     FB_CMD_LEADERBOARD,
     FB_CMD_LOGS,
     FB_CMD_DASHBOARD,
@@ -25,7 +29,8 @@ typedef enum {
 typedef struct {
     FbCommandKind kind;
     char arg1[FB_CMD_ARG_MAX]; /* meaning depends on kind: model/lang name */
-    char arg2[FB_CMD_ARG_MAX]; /* e.g. /add's path */
+    char arg2[FB_CMD_ARG_MAX]; /* e.g. /add's path, /ingest's group */
+    char arg3[FB_CMD_ARG_MAX]; /* /ingest's optional "summary" flag word */
 } FbCommand;
 
 /* Parses a typed line like "/load name" or "/add name path". A line with

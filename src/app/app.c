@@ -79,6 +79,24 @@ void fb_app_init_mode(FbApp *app, int width, int height, FbInputMode mode) {
                   app->qwen_available ? fb_resolve_qwen_port(&app->config) : 0,
                   app->config.diary_page_close_chars, app->config.diary_checkpoint_chars,
                   app->config.diary_idle_close_minutes);
+
+    /* Same always-resident pattern as the Qwen brain, for the same
+       reason: knowledge/knowledge.h's retrieval needs to be fast on
+       every query, not pay a multi-second model-load cost each time. A
+       small embedding model loads in low single-digit seconds (confirmed
+       against embeddinggemma-300M directly), so this is cheap to keep up
+       whenever it's configured at all. */
+    char embedding_model[FB_BACKEND_PATH_MAX];
+    app->knowledge_available =
+        (fb_resolve_embedding_model(&app->config, embedding_model, sizeof(embedding_model)) == 0);
+    if (app->knowledge_available) {
+        const char *extra_args[] = {"--embedding", NULL};
+        fb_backend_mgr_load(&app->backend_mgr, FB_EMBEDDING_BRAIN_NAME, embedding_model,
+                             app->llama_server_path, app->data_dir,
+                             fb_resolve_embedding_port(&app->config), extra_args);
+    }
+    fb_knowledge_init(&app->knowledge, app->data_dir,
+                       app->knowledge_available ? fb_resolve_embedding_port(&app->config) : 0);
 }
 
 /* The history panel's own rect -- shared by history_append (to know the
@@ -214,6 +232,83 @@ static FbBackendInstance *resolve_chat_target(FbApp *app, const FbChatJob *job,
         if (pinned) return pinned;
     }
     return find_chat_target(app);
+}
+
+/* Shared by diary's and scratchpad's live chat: searches the ingested-
+   knowledge store (see knowledge/knowledge.h) using `query` -- always the
+   user's own raw typed text, never a message already wrapped with
+   long-term-memory framing, which would dilute the embedding's semantic
+   signal with unrelated priming text -- and, if any result scores above
+   a minimum relevance, wraps `message_to_send` (which may already carry
+   that long-term-memory prefix) with the matches prepended into
+   scratch_buf, returning that; otherwise returns message_to_send
+   unchanged. Runs every turn, not just the first -- unlike diary's own
+   long-term memory (a one-time "here's who you are" primer), which
+   meeting/customer record is relevant depends on what's actually being
+   asked *this* message. Distinct framing from the long-term-memory
+   prefix so the model (and anyone reading the raw prompt) can tell "your
+   own past conversations" apart from "external reference material" --
+   semantic memory, not episodic. A low-similarity result is worse than
+   none (confidently-wrong-sounding noise), so nothing gets injected
+   below min_score. */
+static const char *inject_knowledge_context(FbApp *app, const char *query, const char *message_to_send,
+                                             char *scratch_buf, size_t scratch_cap) {
+    if (!app->knowledge_available) return message_to_send;
+
+    FbKnowledgeMatch matches[3];
+    int n = fb_knowledge_search(&app->knowledge, query, matches, 3);
+    const float min_score = 0.3f;
+
+    char notes[FB_CHAT_TURN_MAX / 2];
+    size_t notes_off = 0;
+    int used = 0;
+    /* Groups whose summary has already been included this call, so a
+       group with two matching detail chunks doesn't get its summary
+       injected twice. */
+    char seen_summary_groups[3][FB_KNOWLEDGE_SOURCE_MAX];
+    int seen_count = 0;
+    for (int i = 0; i < n; ++i) {
+        if (matches[i].score < min_score) continue;
+
+        /* A matched raw/transcript chunk is one detail out of a whole
+           meeting -- also surface that meeting's own summary alongside
+           it (see fb_knowledge_find_summary) so the model gets both the
+           specific fact and the surrounding context, not an isolated
+           sentence with no frame of reference. */
+        if (!matches[i].is_summary && matches[i].group[0] != '\0') {
+            int already = 0;
+            for (int s = 0; s < seen_count; ++s) {
+                if (strcmp(seen_summary_groups[s], matches[i].group) == 0) already = 1;
+            }
+            if (!already) {
+                FbKnowledgeMatch summary;
+                if (fb_knowledge_find_summary(&app->knowledge, matches[i].group, &summary)) {
+                    int w = snprintf(notes + notes_off, sizeof(notes) - notes_off,
+                                      "%s[%s summary] %s", used > 0 ? "\n" : "", summary.group,
+                                      summary.text);
+                    if (w > 0) notes_off += (size_t)w;
+                    used++;
+                }
+                if (seen_count < 3) {
+                    snprintf(seen_summary_groups[seen_count], FB_KNOWLEDGE_SOURCE_MAX, "%s",
+                             matches[i].group);
+                    seen_count++;
+                }
+            }
+        }
+        if (notes_off >= sizeof(notes) - 1) break;
+
+        int w = snprintf(notes + notes_off, sizeof(notes) - notes_off, "%s[%s] %s",
+                          used > 0 ? "\n" : "", matches[i].source, matches[i].text);
+        if (w > 0) notes_off += (size_t)w;
+        used++;
+        if (notes_off >= sizeof(notes) - 1) break;
+    }
+    if (used == 0) return message_to_send;
+
+    snprintf(scratch_buf, scratch_cap, "(Relevant notes from your ingested records:\n%s)\n\n%s",
+             notes, message_to_send);
+    return scratch_buf;
 }
 
 /* Rebuilds diary_browse_view from the currently browsed archived page (or
@@ -1036,7 +1131,12 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
 
                     strncpy(app->chat_target_name, target->name, sizeof(app->chat_target_name) - 1);
                     app->chat_target_name[sizeof(app->chat_target_name) - 1] = '\0';
-                    if (fb_chat_start(&app->chat_job, target->port, app->cmdline.buf) == 0) {
+
+                    char knowledge_buf[FB_CHAT_TURN_MAX];
+                    const char *to_send = inject_knowledge_context(
+                        app, app->cmdline.buf, app->cmdline.buf, knowledge_buf, sizeof(knowledge_buf));
+
+                    if (fb_chat_start(&app->chat_job, target->port, to_send) == 0) {
                         snprintf(app->last_submitted, FB_CMDLINE_MAX, "chatting with '%s'...",
                                  target->name);
                     } else {
@@ -1097,6 +1197,17 @@ int fb_app_handle_event(FbApp *app, const FbEvent *ev) {
                                  app->cmdline.buf);
                         to_send = primed;
                     }
+
+                    /* Knowledge retrieval runs every turn, not just the
+                       first -- see inject_knowledge_context's comment for
+                       why that differs from the long-term-memory priming
+                       just above. Searches on the raw typed text
+                       (app->cmdline.buf), not `to_send` -- which may
+                       already carry the long-term-memory prefix by this
+                       point -- so the embedding query stays clean. */
+                    char knowledge_buf[FB_CHAT_TURN_MAX];
+                    to_send = inject_knowledge_context(app, app->cmdline.buf, to_send, knowledge_buf,
+                                                        sizeof(knowledge_buf));
 
                     if (fb_chat_start(&app->diary_chat_job, target->port, to_send) == 0) {
                         snprintf(app->last_submitted, FB_CMDLINE_MAX, "diary: chatting with '%s'...",

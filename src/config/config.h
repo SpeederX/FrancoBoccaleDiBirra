@@ -39,6 +39,8 @@ typedef struct {
     char meeting_tts_script[512];
     char meeting_tts_model[512];
     int meeting_llm_port;
+    char embedding_model[512]; /* GGUF for knowledge/knowledge.h's local RAG store */
+    int embedding_port;        /* 0 = not set here */
 
     /* Diary mode's page/memory thresholds -- 0 means "use the built-in
        default" (see diary/diary.h). Each is clamped to that module's hard
@@ -112,5 +114,21 @@ int fb_resolve_qwen_model(const FbConfig *cfg, char *out_path, size_t cap);
    this is a fixed, predictable address by design (see backend_mgr's
    requested_port), not something that needs a "not configured" state. */
 int fb_resolve_qwen_port(const FbConfig *cfg);
+
+#define FB_EMBEDDING_DEFAULT_PORT 8091
+
+/* Same pattern and same reasoning as fb_resolve_qwen_model -- a GGUF for
+   the local RAG store's embedding backend (knowledge/knowledge.h), no
+   auto-detected fallback since guessing an embedding model out of a
+   models folder would be exactly as wrong as guessing a chat one.
+   Uses cfg->embedding_model from config.json.
+   Returns 0 if set to an existing file, -1 otherwise (not configured is
+   normal -- the whole knowledge feature is then just unavailable). */
+int fb_resolve_embedding_model(const FbConfig *cfg, char *out_path, size_t cap);
+
+/* cfg->embedding_port if set, else
+   FB_EMBEDDING_DEFAULT_PORT. Always succeeds, same reasoning as
+   fb_resolve_qwen_port. */
+int fb_resolve_embedding_port(const FbConfig *cfg);
 
 #endif /* FB_CONFIG_H */

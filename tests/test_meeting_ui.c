@@ -138,6 +138,69 @@ static void test_transcript_viewport(FbApp *app) {
     assert(app->meeting.notes.revision == notes_revision);
 }
 
+static void test_integrated_knowledge(int port) {
+    assert(fb_ensure_dir("test-knowledge-state") == 0);
+    FbKnowledge *knowledge = calloc(1, sizeof(*knowledge));
+    assert(knowledge);
+    fb_knowledge_init(knowledge, "test-knowledge-state", 0);
+    assert(fb_knowledge_ingest_file(knowledge, "missing.txt", NULL, 0) == -1);
+    knowledge->embed_port = port;
+    assert(fb_knowledge_ingest_file(knowledge, "missing.txt", NULL, 0) == 0);
+    char text[1900];
+    memset(text, 'A', 900);
+    text[900] = '\n';
+    memset(text + 901, 'B', 900);
+    strcpy(text + 1801, " FINAL_CHUNK_WORD");
+    assert(fb_write_file_atomic("test-knowledge-state/dialogue-transcript.txt", text) == 0);
+    int added = fb_knowledge_ingest_file(knowledge,
+        "test-knowledge-state/dialogue-transcript.txt", "dialogue", 0);
+    assert(added == 2);
+    assert(strstr(knowledge->chunks[knowledge->chunk_count - 1].text, "FINAL_CHUNK_WORD"));
+    size_t length = strlen(knowledge->chunks[knowledge->chunk_count - 2].text);
+    assert(strncmp(knowledge->chunks[knowledge->chunk_count - 1].text,
+        knowledge->chunks[knowledge->chunk_count - 2].text + length - 98, 98) == 0);
+    memset(text, 'A', 999);
+    text[999] = '\n';
+    memset(text + 1000, 'B', 850);
+    strcpy(text + 1850, " FULL_CHUNK_TAIL");
+    assert(fb_write_file_atomic("test-knowledge-state/full-transcript.txt", text) == 0);
+    assert(fb_knowledge_ingest_file(knowledge, "test-knowledge-state/full-transcript.txt", "full", 0) == 3);
+    assert(strstr(knowledge->chunks[knowledge->chunk_count - 1].text, "FULL_CHUNK_TAIL"));
+    assert(fb_write_file_atomic("test-knowledge-state/dialogue-summary.txt", "Summary of the dialogue.") == 0);
+    assert(fb_knowledge_ingest_file(knowledge, "test-knowledge-state/dialogue-summary.txt", "dialogue", 1) == 1);
+    FbConfig config = {0};
+    snprintf(config.embedding_model, sizeof(config.embedding_model), "test-knowledge-state/dialogue-summary.txt");
+    config.embedding_port = 18090;
+    snprintf(config.meeting_folder, sizeof(config.meeting_folder), "local-meetings");
+    snprintf(config.meeting_tts_model, sizeof(config.meeting_tts_model), "local-voice.onnx");
+    assert(fb_config_save(&config, "test-knowledge-state") == 0);
+    FbConfig restored;
+    assert(fb_config_load(&restored, "test-knowledge-state") == 0);
+    assert(strcmp(restored.embedding_model, config.embedding_model) == 0);
+    assert(restored.embedding_port == config.embedding_port);
+    assert(strcmp(restored.meeting_folder, config.meeting_folder) == 0);
+    assert(strcmp(restored.meeting_tts_model, config.meeting_tts_model) == 0);
+#ifdef _WIN32
+    assert(_putenv_s("FB_EMBEDDING_MODEL", "missing-env-model.gguf") == 0);
+    assert(_putenv_s("FB_EMBEDDING_PORT", "19000") == 0);
+#endif
+    char resolved[512];
+    assert(fb_resolve_embedding_model(&restored, resolved, sizeof(resolved)) == 0);
+    assert(strcmp(resolved, restored.embedding_model) == 0);
+    assert(fb_resolve_embedding_port(&restored) == restored.embedding_port);
+#ifdef _WIN32
+    assert(_putenv_s("FB_EMBEDDING_MODEL", "") == 0);
+    assert(_putenv_s("FB_EMBEDDING_PORT", "") == 0);
+#endif
+    FbKnowledgeMatch match;
+    assert(fb_knowledge_find_summary(knowledge, "missing-group", &match) == 0);
+    assert(fb_knowledge_find_summary(knowledge, "dialogue", &match) == 1);
+    assert(match.is_summary && strstr(match.text, "Summary"));
+    assert(fb_knowledge_search(knowledge, "dialogue", &match, 1) == 1);
+    assert(strcmp(match.group, "dialogue") == 0);
+    free(knowledge);
+}
+
 static void begin_fixture_live(FbApp *app, const char *library) {
     assert(fb_meeting_command(&app->meeting, "new") == 0);
     idle(&app->meeting);
@@ -594,6 +657,7 @@ int main(int argc, char **argv) {
         key(app, FB_KEY_F8, 0);
     }
     if (argc >= 3 && strcmp(argv[1], "--live-hardware") != 0) {
+        test_integrated_knowledge(atoi(argv[2]));
         cJSON_Delete(app->meeting.document);
         app->meeting.document = fb_meeting_document_parse(
             "{\"utterances\":[{\"speaker\":3,\"text\":\"Mario, puoi mandare il documento?\",\"start\":0,\"end\":2},"

@@ -7,6 +7,7 @@
 #include "config/config.h"
 #include "diary/diary.h"
 #include "download/download_job.h"
+#include "knowledge/knowledge.h"
 #include "transcribe/transcribe.h"
 #include "tui/screen.h"
 #include "tui/widget_cmdline.h"
@@ -88,6 +89,9 @@ typedef struct {
     FbTextView diary_browse_view;
     int diary_reopen_confirm_pending; /* awaiting a y/N reply to reopen the browsed archived page */
     int scratchpad_new_page_confirm_pending; /* awaiting a y/N/a reply to /new_page in scratchpad */
+
+    int knowledge_available; /* an embedding model is configured (see config.h) */
+    FbKnowledge knowledge;
 } FbApp;
 
 /* Shifts the wave history left and appends one new amplitude sample [0,1]. */
