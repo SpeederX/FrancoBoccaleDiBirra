@@ -142,7 +142,7 @@ if (WIN32)
     target_link_libraries(test_meeting_capture PRIVATE ws2_32 ole32 shell32)
 else()
     target_link_libraries(test_meeting_ui PRIVATE pthread ${CMAKE_DL_LIBS})
-    target_link_libraries(test_meeting_capture PRIVATE pthread ${CMAKE_DL_LIBS})
+    target_link_libraries(test_meeting_capture PRIVATE pthread m ${CMAKE_DL_LIBS})
 endif()
 
 fb_add_test(calibr_results
