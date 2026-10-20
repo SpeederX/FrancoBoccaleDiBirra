@@ -164,6 +164,7 @@ class Pipeline(unittest.TestCase):
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell launch scripts")
     def test_windows_launcher_and_preparation_validation(self):
         scripts = pathlib.Path(__file__).resolve().parents[1] / "scripts"
+        powershell = shutil.which("pwsh") or "powershell.exe"
         assets = self.root / "assets with spaces"
         assets.mkdir()
         for name in ["parakeet-v0.6.1-bin-win-cpu-x64/parakeet-cli.exe",
@@ -174,7 +175,7 @@ class Pipeline(unittest.TestCase):
             path.touch()
 
         def run_script(name, *args, directory=scripts):
-            return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            return subprocess.run([powershell, "-NoProfile", "-ExecutionPolicy", "Bypass",
                                    "-File", str(directory / name), *map(str, args)],
                                   capture_output=True, text=True, timeout=15)
 
