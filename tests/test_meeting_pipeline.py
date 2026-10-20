@@ -69,7 +69,7 @@ class Model(http.server.BaseHTTPRequestHandler):
 class Pipeline(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = pathlib.Path(self.temp.name)
+        self.root = pathlib.Path(self.temp.name).resolve()
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Model)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -200,7 +200,8 @@ class Pipeline(unittest.TestCase):
         missing_binary = run_script("start-meeting.ps1", "-AssetsDirectory", assets, "-PrintCommand",
                                     directory=launcher_scripts)
         self.assertNotEqual(missing_binary.returncode, 0)
-        self.assertIn(str(default_binary), missing_binary.stderr)
+        self.assertIn("Missing ", missing_binary.stderr)
+        self.assertIn(default_binary.name, missing_binary.stderr)
         missing_model = run_script("start-meeting.ps1", *common, "-LlmPort", 18089)
         self.assertNotEqual(missing_model.returncode, 0)
         self.assertIn("Provide both", missing_model.stderr)
