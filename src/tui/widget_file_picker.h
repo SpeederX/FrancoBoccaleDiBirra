@@ -1,6 +1,8 @@
 #ifndef FB_WIDGET_FILE_PICKER_H
 #define FB_WIDGET_FILE_PICKER_H
 
+#include <stddef.h>
+
 #include "platform/dirlist.h"
 #include "tui/layout.h"
 #include "tui/screen.h"
