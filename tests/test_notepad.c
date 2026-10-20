@@ -1,6 +1,7 @@
+#include "tui/widget_notepad.h"
+
 #include <assert.h>
 #include <string.h>
-#include "tui/widget_notepad.h"
 
 void fb_screen_set_cell(int x, int y, const FbCell *cell) {
     (void)x;

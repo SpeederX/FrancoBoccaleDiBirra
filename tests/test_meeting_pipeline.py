@@ -173,9 +173,9 @@ class Pipeline(unittest.TestCase):
             path.parent.mkdir(exist_ok=True)
             path.touch()
 
-        def run_script(name, *args):
+        def run_script(name, *args, directory=scripts):
             return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                                   "-File", str(scripts / name), *map(str, args)],
+                                   "-File", str(directory / name), *map(str, args)],
                                   capture_output=True, text=True, timeout=15)
 
         common = ["-Executable", BINARY, "-AssetsDirectory", assets, "-PrintCommand"]
@@ -185,10 +185,22 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(command[1], "--meeting")
         self.assertIn(str(assets / "tdt-0.6b-v3-q8_0.gguf"), command)
         self.assertEqual(command[-1], "exact-model")
-        default_launch = run_script("start-meeting.ps1", "-AssetsDirectory", assets, "-PrintCommand")
+        launcher_scripts = self.root / "clean checkout with spaces" / "scripts"
+        launcher_scripts.mkdir(parents=True)
+        shutil.copyfile(scripts / "start-meeting.ps1", launcher_scripts / "start-meeting.ps1")
+        default_binary = launcher_scripts.parent / "build/native/Release/fbdb.exe"
+        default_binary.parent.mkdir(parents=True)
+        default_binary.touch()
+        default_launch = run_script("start-meeting.ps1", "-AssetsDirectory", assets, "-PrintCommand",
+                                    directory=launcher_scripts)
         self.assertEqual(default_launch.returncode, 0, default_launch.stderr)
         default_command = json.loads(default_launch.stdout)
-        self.assertEqual(pathlib.Path(default_command[0]), scripts.parent / "build/native/Release/fbdb.exe")
+        self.assertEqual(pathlib.Path(default_command[0]), default_binary)
+        default_binary.unlink()
+        missing_binary = run_script("start-meeting.ps1", "-AssetsDirectory", assets, "-PrintCommand",
+                                    directory=launcher_scripts)
+        self.assertNotEqual(missing_binary.returncode, 0)
+        self.assertIn(str(default_binary), missing_binary.stderr)
         missing_model = run_script("start-meeting.ps1", *common, "-LlmPort", 18089)
         self.assertNotEqual(missing_model.returncode, 0)
         self.assertIn("Provide both", missing_model.stderr)

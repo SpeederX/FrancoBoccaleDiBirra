@@ -1,6 +1,8 @@
 #ifndef FB_WIDGET_NOTEPAD_H
 #define FB_WIDGET_NOTEPAD_H
 
+#include <stddef.h>
+
 #include "tui/layout.h"
 
 typedef struct {

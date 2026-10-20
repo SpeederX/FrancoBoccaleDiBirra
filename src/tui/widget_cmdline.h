@@ -1,6 +1,8 @@
 #ifndef FB_WIDGET_CMDLINE_H
 #define FB_WIDGET_CMDLINE_H
 
+#include <stddef.h>
+
 #include "tui/layout.h"
 #include "tui/screen.h"
 
